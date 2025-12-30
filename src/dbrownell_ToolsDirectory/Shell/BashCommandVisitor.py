@@ -1,7 +1,5 @@
 # noqa: D100
-import shlex
 import textwrap
-import uuid
 
 from dbrownell_Common.Types import override
 
@@ -23,25 +21,17 @@ from dbrownell_ToolsDirectory.Shell.CommandVisitor import CommandVisitor
 
 
 # ----------------------------------------------------------------------
-class BatchCommandVisitor(CommandVisitor):
-    """Command visitor for Windows batch scripts."""
+class BashCommandVisitor(CommandVisitor):
+    """Command visitor for Linux bash scripts."""
 
     # ----------------------------------------------------------------------
     def __init__(self) -> None:
         super().__init__()
 
         self._message_substitution_lookup: dict[str, str] = {
-            "%": "%%",
-            "&": "^&",
-            "<": "^<",
-            ">": "^>",
-            "|": "^|",
-            ",": "^,",
-            ";": "^;",
-            "(": "^(",
-            ")": "^)",
-            "[": "^[",
-            "]": "^]",
+            "$": r"\$",
+            '"': r"\"",
+            "`": r"\\\`",
         }
 
     # ----------------------------------------------------------------------
@@ -54,18 +44,15 @@ class BatchCommandVisitor(CommandVisitor):
 
         for command_line in command.value.split("\n"):
             if not command_line.strip():
-                # Note that the trailing white space seems to be necessary on some terminals
-                output.append("echo. ")
+                output.append('echo ""')
                 continue
 
-            line = command_line.replace("^", "__caret_placeholder__")
+            line = command_line
 
             for source, dest in self._message_substitution_lookup.items():
                 line = line.replace(source, dest)
 
-            line = line.replace("__caret_placeholder__", "^")
-
-            output.append(f"echo {line}")
+            output.append(f'echo "{line}"')
 
         return " && ".join(output)
 
@@ -75,9 +62,11 @@ class BatchCommandVisitor(CommandVisitor):
         self,
         command: Call,
     ) -> str | None:
-        result = f"call {command.command_line}"
+        result = f"source {command.command_line}"
         if command.exit_on_error:
-            result += "\n{}\n".format(self.Accept(ExitOnError()))
+            result += "\n{}".format(
+                self.Accept(ExitOnError(use_return_statement=command.exit_via_return_statement))
+            )
 
         return result
 
@@ -87,15 +76,12 @@ class BatchCommandVisitor(CommandVisitor):
         self,
         command: Execute,
     ) -> str | None:
-        commands: list[str] = shlex.split(command.command_line)
-
-        if commands[0].lower().endswith((".bat", ".cmd")):
-            result = f"cmd /c {command.command_line}"
-        else:
-            result = command.command_line
+        result = command.command_line
 
         if command.exit_on_error:
-            result += "\n{}\n".format(self.Accept(ExitOnError()))
+            result += "\n{}".format(
+                self.Accept(ExitOnError(use_return_statement=command.exit_via_return_statement))
+            )
 
         return result
 
@@ -106,9 +92,14 @@ class BatchCommandVisitor(CommandVisitor):
         command: Set,
     ) -> str | None:
         if command.value_or_values is None:
-            return f"SET {command.name}="
+            return f"unset {command.name}"
 
-        return f"SET {command.name}={';'.join(command.EnumValues())}"
+        values = ":".join(command.EnumValues())
+
+        values = values.removeprefix('"')
+        values = values.removesuffix('"')
+
+        return f'export {command.name}="{values}"'
 
     # ----------------------------------------------------------------------
     @override
@@ -117,35 +108,19 @@ class BatchCommandVisitor(CommandVisitor):
         command: Augment,
     ) -> str | None:
         if command.append_values:
-            add_statement_template = f"{{value}};%{command.name}%"
+            add_statement_template = f"{{value}}:${{{{{command.name}}}}}"
         else:
-            add_statement_template = f"%{command.name}%;{{value}}"
+            add_statement_template = f"${{{{{command.name}}}}}:{{value}}"
 
-        statement_template = textwrap.dedent(
-            """\
-            REM {{value}}
-            echo ";%{name}%;" | findstr /C:";{{value}};" >nul
-            if %ERRORLEVEL% EQ 0 goto skip_{{unique_id}}
+        add_statement_template = f'export {command.name}="{add_statement_template}"'
 
-            SET {name}={add_statement_template}
-
-            :skip_{{unique_id}}
-
-            """,
-        ).format(
-            name=command.name,
-            add_statement_template=add_statement_template,
+        statement_template = (
+            f'[[ ":${{{{{command.name}}}}}:" != *":{{value}}:"* ]] && ' + add_statement_template
         )
 
-        statements: list[str] = [
-            statement_template.format(
-                value=value,
-                unique_id=str(uuid.uuid4()).replace("-", ""),
-            )
-            for value in command.EnumValues()
-        ]
+        statements: list[str] = [statement_template.format(value=value) for value in command.EnumValues()]
 
-        return "".join(statements)
+        return "\n".join(statements)
 
     # ----------------------------------------------------------------------
     @override
@@ -157,11 +132,27 @@ class BatchCommandVisitor(CommandVisitor):
             """\
             {success}
             {error}
-            exit /B {return_code}
+            return {return_code}
             """,
         ).format(
-            success="if %ERRORLEVEL% EQ 0 (pause)" if command.pause_on_success else "",
-            error="if %ERRORLEVEL% NEQ 0 (pause)" if command.pause_on_error else "",
+            success=textwrap.dedent(
+                """\
+                if [[ $? -eq 0 ]]; then
+                    read -p "Press [Enter] to continue"
+                fi
+                """,
+            ).rstrip()
+            if command.pause_on_success
+            else "",
+            error=textwrap.dedent(
+                """\
+                if [[ $? -ne 0 ]]; then
+                    read -p "Press [Enter] to continue"
+                fi
+                """,
+            ).rstrip()
+            if command.pause_on_error
+            else "",
             return_code=command.return_code or 0,
         )
 
@@ -171,11 +162,15 @@ class BatchCommandVisitor(CommandVisitor):
         self,
         command: ExitOnError,
     ) -> str | None:
-        variable_name = command.variable_name or "ERRORLEVEL"
+        variable_name = f"${command.variable_name}" if command.variable_name else "$?"
 
-        return "if %{}% NEQ 0 (exit /B {})".format(
-            variable_name,
-            command.return_code if command.return_code is not None else f"%{variable_name}%",
+        return textwrap.dedent(
+            f"""\
+            error_code={variable_name}
+            if [[ $error_code -ne 0 ]]; then
+                {"return" if command.use_return_statement else "exit"} {command.return_code or "$error_code"}
+            fi
+            """,
         )
 
     # ----------------------------------------------------------------------
@@ -184,7 +179,7 @@ class BatchCommandVisitor(CommandVisitor):
         self,
         command: EchoOff,  # noqa: ARG002
     ) -> str | None:
-        return "@echo off"
+        return "set +x"
 
     # ----------------------------------------------------------------------
     @override
@@ -192,7 +187,7 @@ class BatchCommandVisitor(CommandVisitor):
         self,
         command: PersistError,
     ) -> str | None:
-        return f"SET {command.variable_name}=%ERRORLEVEL%"
+        return f"{command.variable_name}=$?"
 
     # ----------------------------------------------------------------------
     @override
@@ -200,8 +195,12 @@ class BatchCommandVisitor(CommandVisitor):
         self,
         command: PushDirectory,
     ) -> str | None:
-        directory = command.value or "%~dp0"
-        return f'pushd "{directory}"'
+        if command.value is None:
+            directory = """$( cd "$( dirname "${BASH_SOURCE[0]}" )" > /dev/null 2>&1 && pwd )"""
+        else:
+            directory = f'"{command.value.as_posix()}"'
+
+        return f"pushd {directory} > /dev/null"
 
     # ----------------------------------------------------------------------
     @override
@@ -209,7 +208,7 @@ class BatchCommandVisitor(CommandVisitor):
         self,
         command: PopDirectory,  # noqa: ARG002
     ) -> str | None:
-        return "popd"
+        return "popd > /dev/null"
 
     # ----------------------------------------------------------------------
     @override
