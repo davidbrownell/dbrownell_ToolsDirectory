@@ -15,7 +15,11 @@ from dbrownell_ToolsDirectory.ExecuteImpl import __main__
 
 # ----------------------------------------------------------------------
 def test_NoArgs(fs, monkeypatch):
-    result, args = _Execute(fs, monkeypatch, [])
+    execute_result = _Execute(fs, monkeypatch, [])
+    assert isinstance(execute_result, tuple)
+
+    result = execute_result[0]
+    args = execute_result[1]
 
     assert result.exit_code == 0
 
@@ -31,7 +35,13 @@ def test_NoArgs(fs, monkeypatch):
 
 # ----------------------------------------------------------------------
 def test_IncludesAndExcludes(fs, monkeypatch):
-    result, args = _Execute(fs, monkeypatch, ["--include", "A", "--include", "B", "--exclude", "C"])
+    execute_result = _Execute(fs, monkeypatch, ["--include", "A", "--include", "B", "--exclude", "C"])
+    assert isinstance(execute_result, tuple)
+
+    result = execute_result[0]
+    args = execute_result[1]
+
+    assert result.exit_code == 0
 
     assert args.tool_directory
     assert args.include_tools == set(["A", "B"])
@@ -45,11 +55,18 @@ def test_IncludesAndExcludes(fs, monkeypatch):
 
 # ----------------------------------------------------------------------
 def test_ToolVersions(fs, monkeypatch):
-    result, args = _Execute(
+    execute_result = _Execute(
         fs,
         monkeypatch,
         ["--tool-version", "ToolA=1.2.3", "--tool-version", "ToolB=4.5.6"],
     )
+
+    assert isinstance(execute_result, tuple)
+
+    result = execute_result[0]
+    args = execute_result[1]
+
+    assert result.exit_code == 0
 
     assert args.tool_directory
     assert args.include_tools == set()
@@ -73,6 +90,8 @@ def test_InvalidToolVersionString(fs, monkeypatch):
         expect_failure=True,
     )
 
+    assert isinstance(result, Result)
+
     assert result.exit_code != 0
 
 
@@ -84,6 +103,8 @@ def test_InvalidToolVersionValue(fs, monkeypatch):
         ["--tool-version", "ToolA=NotASemVer"],
         expect_failure=True,
     )
+
+    assert isinstance(result, Result)
 
     assert result.exit_code != 0
 
