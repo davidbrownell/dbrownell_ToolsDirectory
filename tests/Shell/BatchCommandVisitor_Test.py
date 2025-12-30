@@ -27,7 +27,7 @@ from dbrownell_ToolsDirectory.Shell.BatchCommandVisitor import BatchCommandVisit
     ],
 )
 def test_Message(special_char) -> None:
-    escaped_char = f"%%" if special_char == "%" else f"^{special_char}"
+    escaped_char = "%%" if special_char == "%" else f"^{special_char}"
 
     command = BatchCommandVisitor().Accept(
         Message(
@@ -366,10 +366,18 @@ def test_PersistError() -> None:
 
 
 # ----------------------------------------------------------------------
-def test_PushDirectory() -> None:
-    command = BatchCommandVisitor().Accept(PushDirectory(Path(r"C:\My\Directory")))
+class TestPushDirectory:
+    # ----------------------------------------------------------------------
+    def test_Standard(self) -> None:
+        command = BatchCommandVisitor().Accept(PushDirectory(Path(r"C:\My\Directory")))
 
-    assert command == r'pushd "C:\My\Directory"'
+        assert command == r'pushd "C:\My\Directory"'
+
+    # ----------------------------------------------------------------------
+    def test_None(self) -> None:
+        command = BatchCommandVisitor().Accept(PushDirectory(None))
+
+        assert command == 'pushd "%~dp0"'
 
 
 # ----------------------------------------------------------------------
