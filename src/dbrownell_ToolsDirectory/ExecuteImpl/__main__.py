@@ -12,7 +12,7 @@ from dbrownell_Common.Streams.DoneManager import DoneManager, Flags as DoneManag
 from semantic_version import Version as SemVer
 from typer.core import TyperGroup
 
-from dbrownell_ToolsDirectory import Lib
+from dbrownell_ToolsDirectory import ToolInfo
 
 
 # ----------------------------------------------------------------------
@@ -69,8 +69,8 @@ def _CreateHelp() -> str:
 
         """,
     ).format(
-        operating_systems=" | ".join(Lib.OperatingSystemType.Linux.strings),
-        architectures=" | ".join(Lib.ArchitectureType.x64.strings),
+        operating_systems=" | ".join(ToolInfo.OperatingSystemType.Linux.strings),
+        architectures=" | ".join(ToolInfo.ArchitectureType.x64.strings),
     )
 
 
@@ -135,14 +135,14 @@ def EntryPoint(  # noqa: D103
     with DoneManager.CreateCommandLine(
         flags=DoneManagerFlags.Create(verbose=verbose, debug=debug),
     ) as dm:
-        tool_infos = Lib.GetToolInfos(
+        tool_infos = ToolInfo.GetToolInfos(
             dm,
             tool_directory,
             set(include or []),
             set(exclude or []),
             _ExtractToolVersions(dm, tool_version or []),
-            Lib.OperatingSystemType.Calculate(),
-            Lib.ArchitectureType.Calculate(),
+            ToolInfo.OperatingSystemType.Calculate(),
+            ToolInfo.ArchitectureType.Calculate(),
             no_generic_operating_systems=no_generic_operating_system,
             no_generic_architectures=no_generic_architecture,
         )
