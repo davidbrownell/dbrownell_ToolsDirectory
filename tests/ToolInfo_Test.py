@@ -6,7 +6,7 @@ from typing import cast
 
 from dbrownell_Common.Streams.DoneManager import DoneManager
 from dbrownell_Common.TestHelpers.StreamTestHelpers import GenerateDoneManagerAndContent
-from dbrownell_ToolsDirectory import Lib
+from dbrownell_ToolsDirectory import ToolInfo
 
 
 # ----------------------------------------------------------------------
@@ -16,17 +16,17 @@ class TestOperatingSystemType:
         platform = sys.platform
 
         if platform.startswith("linux"):
-            expected = Lib.OperatingSystemType.Linux
+            expected = ToolInfo.OperatingSystemType.Linux
         elif platform.startswith("darwin"):
-            expected = Lib.OperatingSystemType.MacOS
+            expected = ToolInfo.OperatingSystemType.MacOS
         elif platform.startswith("win32"):
-            expected = Lib.OperatingSystemType.Windows
+            expected = ToolInfo.OperatingSystemType.Windows
 
-        assert Lib.OperatingSystemType.Calculate() == expected
+        assert ToolInfo.OperatingSystemType.Calculate() == expected
 
     # ----------------------------------------------------------------------
     def test_Strings(self) -> None:
-        results = Lib.OperatingSystemType.Linux.strings
+        results = ToolInfo.OperatingSystemType.Linux.strings
 
         assert results == set(
             [
@@ -45,15 +45,15 @@ class TestArchitectureType:
         architecture = platform.machine().lower()
 
         if architecture == "arm64":
-            expected = Lib.ArchitectureType.ARM64
+            expected = ToolInfo.ArchitectureType.ARM64
         else:
-            expected = Lib.ArchitectureType.x64
+            expected = ToolInfo.ArchitectureType.x64
 
-        assert Lib.ArchitectureType.Calculate() == expected
+        assert ToolInfo.ArchitectureType.Calculate() == expected
 
     # ----------------------------------------------------------------------
     def test_Strings(self) -> None:
-        results = Lib.ArchitectureType.x64.strings
+        results = ToolInfo.ArchitectureType.x64.strings
 
         assert results == set(
             [
@@ -70,8 +70,8 @@ class TestArchitectureType:
 class TestGetToolInfos:
     # ----------------------------------------------------------------------
     def test_Standard(self, fs):
-        operating_system = Lib.OperatingSystemType.Calculate().name
-        architecture = Lib.ArchitectureType.Calculate().name
+        operating_system = ToolInfo.OperatingSystemType.Calculate().name
+        architecture = ToolInfo.ArchitectureType.Calculate().name
 
         fs.create_file("/Tools/Tool1/file.txt")
         fs.create_file("/Tools/Tool2/bin/file.txt")
@@ -93,92 +93,92 @@ class TestGetToolInfos:
 
         dm_and_sink = iter(GenerateDoneManagerAndContent())
 
-        results = Lib.GetToolInfos(
+        results = ToolInfo.GetToolInfos(
             cast(DoneManager, next(dm_and_sink)),
             Path("/Tools"),
             set(),
             set(),
             {},
-            Lib.OperatingSystemType.Calculate(),
-            Lib.ArchitectureType.Calculate(),
+            ToolInfo.OperatingSystemType.Calculate(),
+            ToolInfo.ArchitectureType.Calculate(),
         )
 
         assert results == [
-            Lib.ToolInfo("Tool1", Path("/Tools/Tool1"), Path("/Tools/Tool1"), Path("/Tools/Tool1")),
-            Lib.ToolInfo("Tool2", Path("/Tools/Tool2"), Path("/Tools/Tool2"), Path("/Tools/Tool2/bin")),
-            Lib.ToolInfo(
+            ToolInfo.ToolInfo("Tool1", Path("/Tools/Tool1"), Path("/Tools/Tool1"), Path("/Tools/Tool1")),
+            ToolInfo.ToolInfo("Tool2", Path("/Tools/Tool2"), Path("/Tools/Tool2"), Path("/Tools/Tool2/bin")),
+            ToolInfo.ToolInfo(
                 "Tool3", Path("/Tools/Tool3"), Path("/Tools/Tool3/1.0.0"), Path("/Tools/Tool3/1.0.0")
             ),
-            Lib.ToolInfo(
+            ToolInfo.ToolInfo(
                 "Tool4", Path("/Tools/Tool4"), Path("/Tools/Tool4/v2.3.4"), Path("/Tools/Tool4/v2.3.4")
             ),
-            Lib.ToolInfo(
+            ToolInfo.ToolInfo(
                 "Tool5",
                 Path("/Tools/Tool5"),
                 Path(f"/Tools/Tool5/1.0.0/{operating_system}"),
                 Path(f"/Tools/Tool5/1.0.0/{operating_system}"),
             ),
-            Lib.ToolInfo(
+            ToolInfo.ToolInfo(
                 "Tool6",
                 Path("/Tools/Tool6"),
                 Path(f"/Tools/Tool6/1.0.0/{operating_system}"),
                 Path(f"/Tools/Tool6/1.0.0/{operating_system}/bin"),
             ),
-            Lib.ToolInfo(
+            ToolInfo.ToolInfo(
                 "Tool7",
                 Path("/Tools/Tool7"),
                 Path(f"/Tools/Tool7/1.0.0/{operating_system}/{architecture}"),
                 Path(f"/Tools/Tool7/1.0.0/{operating_system}/{architecture}"),
             ),
-            Lib.ToolInfo(
+            ToolInfo.ToolInfo(
                 "Tool8",
                 Path("/Tools/Tool8"),
                 Path(f"/Tools/Tool8/1.0.0/{operating_system}/{architecture}"),
                 Path(f"/Tools/Tool8/1.0.0/{operating_system}/{architecture}/bin"),
             ),
-            Lib.ToolInfo(
+            ToolInfo.ToolInfo(
                 "Tool9",
                 Path("/Tools/Tool9"),
                 Path("/Tools/Tool9/1.0.0/Generic"),
                 Path("/Tools/Tool9/1.0.0/Generic"),
             ),
-            Lib.ToolInfo(
+            ToolInfo.ToolInfo(
                 "Tool10",
                 Path("/Tools/Tool10"),
                 Path("/Tools/Tool10/1.0.0/Generic"),
                 Path("/Tools/Tool10/1.0.0/Generic/bin"),
             ),
-            Lib.ToolInfo(
+            ToolInfo.ToolInfo(
                 "Tool11",
                 Path("/Tools/Tool11"),
                 Path(f"/Tools/Tool11/1.0.0/Generic/{architecture}"),
                 Path(f"/Tools/Tool11/1.0.0/Generic/{architecture}"),
             ),
-            Lib.ToolInfo(
+            ToolInfo.ToolInfo(
                 "Tool12",
                 Path("/Tools/Tool12"),
                 Path(f"/Tools/Tool12/1.0.0/Generic/{architecture}"),
                 Path(f"/Tools/Tool12/1.0.0/Generic/{architecture}/bin"),
             ),
-            Lib.ToolInfo(
+            ToolInfo.ToolInfo(
                 "Tool13",
                 Path("/Tools/Tool13"),
                 Path(f"/Tools/Tool13/{operating_system}"),
                 Path(f"/Tools/Tool13/{operating_system}"),
             ),
-            Lib.ToolInfo(
+            ToolInfo.ToolInfo(
                 "Tool14",
                 Path("/Tools/Tool14"),
                 Path(f"/Tools/Tool14/{operating_system}"),
                 Path(f"/Tools/Tool14/{operating_system}/bin"),
             ),
-            Lib.ToolInfo(
+            ToolInfo.ToolInfo(
                 "Tool15",
                 Path("/Tools/Tool15"),
                 Path(f"/Tools/Tool15/{operating_system}/{architecture}"),
                 Path(f"/Tools/Tool15/{operating_system}/{architecture}"),
             ),
-            Lib.ToolInfo(
+            ToolInfo.ToolInfo(
                 "Tool16",
                 Path("/Tools/Tool16"),
                 Path(f"/Tools/Tool16/{operating_system}/{architecture}"),
@@ -194,19 +194,19 @@ class TestGetToolInfos:
 
         dm_and_sink = iter(GenerateDoneManagerAndContent())
 
-        results = Lib.GetToolInfos(
+        results = ToolInfo.GetToolInfos(
             cast(DoneManager, next(dm_and_sink)),
             Path("/Tools"),
             {"Tool1", "Tool3"},
             set(),
             {},
-            Lib.OperatingSystemType.Calculate(),
-            Lib.ArchitectureType.Calculate(),
+            ToolInfo.OperatingSystemType.Calculate(),
+            ToolInfo.ArchitectureType.Calculate(),
         )
 
         assert results == [
-            Lib.ToolInfo("Tool1", Path("/Tools/Tool1"), Path("/Tools/Tool1"), Path("/Tools/Tool1")),
-            Lib.ToolInfo("Tool3", Path("/Tools/Tool3"), Path("/Tools/Tool3"), Path("/Tools/Tool3")),
+            ToolInfo.ToolInfo("Tool1", Path("/Tools/Tool1"), Path("/Tools/Tool1"), Path("/Tools/Tool1")),
+            ToolInfo.ToolInfo("Tool3", Path("/Tools/Tool3"), Path("/Tools/Tool3"), Path("/Tools/Tool3")),
         ]
 
     # ----------------------------------------------------------------------
@@ -217,19 +217,19 @@ class TestGetToolInfos:
 
         dm_and_sink = iter(GenerateDoneManagerAndContent())
 
-        results = Lib.GetToolInfos(
+        results = ToolInfo.GetToolInfos(
             cast(DoneManager, next(dm_and_sink)),
             Path("/Tools"),
             set(),
             {"Tool2"},
             {},
-            Lib.OperatingSystemType.Calculate(),
-            Lib.ArchitectureType.Calculate(),
+            ToolInfo.OperatingSystemType.Calculate(),
+            ToolInfo.ArchitectureType.Calculate(),
         )
 
         assert results == [
-            Lib.ToolInfo("Tool1", Path("/Tools/Tool1"), Path("/Tools/Tool1"), Path("/Tools/Tool1")),
-            Lib.ToolInfo("Tool3", Path("/Tools/Tool3"), Path("/Tools/Tool3"), Path("/Tools/Tool3")),
+            ToolInfo.ToolInfo("Tool1", Path("/Tools/Tool1"), Path("/Tools/Tool1"), Path("/Tools/Tool1")),
+            ToolInfo.ToolInfo("Tool3", Path("/Tools/Tool3"), Path("/Tools/Tool3"), Path("/Tools/Tool3")),
         ]
 
     # ----------------------------------------------------------------------
@@ -240,18 +240,18 @@ class TestGetToolInfos:
 
         dm_and_sink = iter(GenerateDoneManagerAndContent())
 
-        results = Lib.GetToolInfos(
+        results = ToolInfo.GetToolInfos(
             cast(DoneManager, next(dm_and_sink)),
             Path("/Tools"),
             set(),
             set(),
             {},
-            Lib.OperatingSystemType.Calculate(),
-            Lib.ArchitectureType.Calculate(),
+            ToolInfo.OperatingSystemType.Calculate(),
+            ToolInfo.ArchitectureType.Calculate(),
         )
 
         assert results == [
-            Lib.ToolInfo(
+            ToolInfo.ToolInfo(
                 "Tool1", Path("/Tools/Tool1"), Path("/Tools/Tool1/2.0.0"), Path("/Tools/Tool1/2.0.0")
             ),
         ]
@@ -264,18 +264,18 @@ class TestGetToolInfos:
 
         dm_and_sink = iter(GenerateDoneManagerAndContent())
 
-        results = Lib.GetToolInfos(
+        results = ToolInfo.GetToolInfos(
             cast(DoneManager, next(dm_and_sink)),
             Path("/Tools"),
             set(),
             set(),
-            {"Tool1": Lib.SemVer.coerce("1.5.0")},
-            Lib.OperatingSystemType.Calculate(),
-            Lib.ArchitectureType.Calculate(),
+            {"Tool1": ToolInfo.SemVer.coerce("1.5.0")},
+            ToolInfo.OperatingSystemType.Calculate(),
+            ToolInfo.ArchitectureType.Calculate(),
         )
 
         assert results == [
-            Lib.ToolInfo(
+            ToolInfo.ToolInfo(
                 "Tool1", Path("/Tools/Tool1"), Path("/Tools/Tool1/1.5.0"), Path("/Tools/Tool1/1.5.0")
             ),
         ]
@@ -288,14 +288,14 @@ class TestGetToolInfos:
 
         dm_and_sink = iter(GenerateDoneManagerAndContent())
 
-        results = Lib.GetToolInfos(
+        results = ToolInfo.GetToolInfos(
             cast(DoneManager, next(dm_and_sink)),
             Path("/Tools"),
             set(),
             set(),
-            {"Tool1": Lib.SemVer.coerce("3.0.0")},
-            Lib.OperatingSystemType.Calculate(),
-            Lib.ArchitectureType.Calculate(),
+            {"Tool1": ToolInfo.SemVer.coerce("3.0.0")},
+            ToolInfo.OperatingSystemType.Calculate(),
+            ToolInfo.ArchitectureType.Calculate(),
         )
 
         assert results == []
@@ -310,8 +310,8 @@ class TestGetToolInfos:
     def test_GenericOperatingSystem(self, fs):
         not_this_operating_system = next(
             operating_system
-            for operating_system in Lib.OperatingSystemType
-            if operating_system != Lib.OperatingSystemType.Calculate()
+            for operating_system in ToolInfo.OperatingSystemType
+            if operating_system != ToolInfo.OperatingSystemType.Calculate()
         )
 
         fs.create_file(f"/Tools/Tool1/{not_this_operating_system.name}/file.txt")
@@ -319,18 +319,18 @@ class TestGetToolInfos:
 
         dm_and_sink = iter(GenerateDoneManagerAndContent())
 
-        results = Lib.GetToolInfos(
+        results = ToolInfo.GetToolInfos(
             cast(DoneManager, next(dm_and_sink)),
             Path("/Tools"),
             set(),
             set(),
             {},
-            Lib.OperatingSystemType.Calculate(),
-            Lib.ArchitectureType.Calculate(),
+            ToolInfo.OperatingSystemType.Calculate(),
+            ToolInfo.ArchitectureType.Calculate(),
         )
 
         assert results == [
-            Lib.ToolInfo(
+            ToolInfo.ToolInfo(
                 "Tool1", Path("/Tools/Tool1"), Path("/Tools/Tool1/Generic"), Path("/Tools/Tool1/Generic")
             ),
         ]
@@ -339,8 +339,8 @@ class TestGetToolInfos:
     def test_GenericOperatingSystemNoGenerics(self, fs):
         not_this_operating_system = next(
             operating_system
-            for operating_system in Lib.OperatingSystemType
-            if operating_system != Lib.OperatingSystemType.Calculate()
+            for operating_system in ToolInfo.OperatingSystemType
+            if operating_system != ToolInfo.OperatingSystemType.Calculate()
         )
 
         fs.create_file(f"/Tools/Tool1/{not_this_operating_system.name}/file.txt")
@@ -348,14 +348,14 @@ class TestGetToolInfos:
 
         dm_and_sink = iter(GenerateDoneManagerAndContent())
 
-        results = Lib.GetToolInfos(
+        results = ToolInfo.GetToolInfos(
             cast(DoneManager, next(dm_and_sink)),
             Path("/Tools"),
             set(),
             set(),
             {},
-            Lib.OperatingSystemType.Calculate(),
-            Lib.ArchitectureType.Calculate(),
+            ToolInfo.OperatingSystemType.Calculate(),
+            ToolInfo.ArchitectureType.Calculate(),
             no_generic_operating_systems=True,
         )
 
@@ -366,7 +366,7 @@ class TestGetToolInfos:
         tool_dir = str(Path("/Tools/Tool1"))
 
         assert (
-            f"No directory found for '{Lib.OperatingSystemType.Calculate().name}' for the tool 'Tool1' in '{tool_dir}'."
+            f"No directory found for '{ToolInfo.OperatingSystemType.Calculate().name}' for the tool 'Tool1' in '{tool_dir}'."
             in output
         )
 
@@ -374,8 +374,8 @@ class TestGetToolInfos:
     def test_GenericArchitecture(self, fs):
         not_this_architecture = next(
             architecture
-            for architecture in Lib.ArchitectureType
-            if architecture != Lib.ArchitectureType.Calculate()
+            for architecture in ToolInfo.ArchitectureType
+            if architecture != ToolInfo.ArchitectureType.Calculate()
         )
 
         fs.create_file(f"/Tools/Tool1/{not_this_architecture.name}/file.txt")
@@ -383,30 +383,30 @@ class TestGetToolInfos:
 
         dm_and_sink = iter(GenerateDoneManagerAndContent())
 
-        results = Lib.GetToolInfos(
+        results = ToolInfo.GetToolInfos(
             cast(DoneManager, next(dm_and_sink)),
             Path("/Tools"),
             set(),
             set(),
             {},
-            Lib.OperatingSystemType.Calculate(),
-            Lib.ArchitectureType.Calculate(),
+            ToolInfo.OperatingSystemType.Calculate(),
+            ToolInfo.ArchitectureType.Calculate(),
         )
 
         assert results == [
-            Lib.ToolInfo(
+            ToolInfo.ToolInfo(
                 "Tool1", Path("/Tools/Tool1"), Path("/Tools/Tool1/Generic"), Path("/Tools/Tool1/Generic")
             ),
         ]
 
     # ----------------------------------------------------------------------
     def test_GenericArchitectureNoGenerics(self, fs):
-        this_operating_system = Lib.OperatingSystemType.Calculate().name
+        this_operating_system = ToolInfo.OperatingSystemType.Calculate().name
 
         not_this_architecture = next(
             architecture
-            for architecture in Lib.ArchitectureType
-            if architecture != Lib.ArchitectureType.Calculate()
+            for architecture in ToolInfo.ArchitectureType
+            if architecture != ToolInfo.ArchitectureType.Calculate()
         )
 
         fs.create_file(f"/Tools/Tool1/{this_operating_system}/{not_this_architecture.name}/file.txt")
@@ -414,14 +414,14 @@ class TestGetToolInfos:
 
         dm_and_sink = iter(GenerateDoneManagerAndContent())
 
-        results = Lib.GetToolInfos(
+        results = ToolInfo.GetToolInfos(
             cast(DoneManager, next(dm_and_sink)),
             Path("/Tools"),
             set(),
             set(),
             {},
-            Lib.OperatingSystemType.Calculate(),
-            Lib.ArchitectureType.Calculate(),
+            ToolInfo.OperatingSystemType.Calculate(),
+            ToolInfo.ArchitectureType.Calculate(),
             no_generic_architectures=True,
         )
 
@@ -432,6 +432,6 @@ class TestGetToolInfos:
         tool_dir = str(Path(f"/Tools/Tool1/{this_operating_system}"))
 
         assert (
-            f"No directory found for '{Lib.ArchitectureType.Calculate().name}' for the tool 'Tool1' in '{tool_dir}'."
+            f"No directory found for '{ToolInfo.ArchitectureType.Calculate().name}' for the tool 'Tool1' in '{tool_dir}'."
             in output
         )

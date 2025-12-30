@@ -9,7 +9,7 @@ from _pytest.monkeypatch import MonkeyPatch
 from semantic_version import Version as SemVer
 from typer.testing import CliRunner
 
-from dbrownell_ToolsDirectory import Lib
+from dbrownell_ToolsDirectory import ToolInfo
 from dbrownell_ToolsDirectory.ExecuteImpl import __main__
 
 
@@ -98,8 +98,8 @@ class _Args:
     include_tools: set[str]
     exclude_tools: set[str]
     tool_versions: dict[str, SemVer]
-    operating_system: Lib.OperatingSystemType
-    architecture: Lib.ArchitectureType
+    operating_system: ToolInfo.OperatingSystemType
+    architecture: ToolInfo.ArchitectureType
     no_generic_operating_systems: bool
     no_generic_architectures: bool
 
@@ -119,7 +119,7 @@ def _Execute(
 
     mock = Mock(return_value=[])
 
-    monkeypatch.setattr("dbrownell_ToolsDirectory.Lib.GetToolInfos", mock)
+    monkeypatch.setattr("dbrownell_ToolsDirectory.ToolInfo.GetToolInfos", mock)
 
     result = CliRunner().invoke(__main__.app, [str(tool_directory), str(output_filename), output_type] + args)
     if expect_failure:
