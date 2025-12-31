@@ -39,7 +39,7 @@ def test_Message(special_char: str) -> None:
     assert lines[2] == 'echo "Next Line."'
     assert lines[3] == 'echo ""'
     assert lines[4] == 'echo "The last line."'
-    assert lines[5] == 'echo ""'
+    assert lines[5] == 'echo ""\n'
 
 
 # ----------------------------------------------------------------------
@@ -67,7 +67,7 @@ class TestCall:
             ),
         )
 
-        assert command == "source the command"
+        assert command == "source the command\n"
 
     # ----------------------------------------------------------------------
     def test_ExitViaReturnStatement(self) -> None:
@@ -114,7 +114,7 @@ class TestExecute:
             ),
         )
 
-        assert command == "the command"
+        assert command == "the command\n"
 
     # ----------------------------------------------------------------------
     def test_ExitViaReturnStatement(self) -> None:
@@ -144,7 +144,7 @@ class TestSet:
             Set("MY_VAR", None),
         )
 
-        assert command == "unset MY_VAR"
+        assert command == "unset MY_VAR\n"
 
     # ----------------------------------------------------------------------
     def test_SingleValue(self) -> None:
@@ -152,7 +152,7 @@ class TestSet:
             Set("MY_VAR", "my_value"),
         )
 
-        assert command == 'export MY_VAR="my_value"'
+        assert command == 'export MY_VAR="my_value"\n'
 
     # ----------------------------------------------------------------------
     def test_MultipleValues(self) -> None:
@@ -160,7 +160,7 @@ class TestSet:
             Set("MY_VAR", ["value1", "value2", "value3"]),
         )
 
-        assert command == 'export MY_VAR="value1:value2:value3"'
+        assert command == 'export MY_VAR="value1:value2:value3"\n'
 
 
 # ----------------------------------------------------------------------
@@ -169,42 +169,33 @@ class TestAugment:
     def test_Single(self) -> None:
         command = BashCommandVisitor().Accept(Augment("MY_VAR", "Value1"))
 
-        assert (
-            command
-            == textwrap.dedent(
-                """\
+        assert command == textwrap.dedent(
+            """\
             [[ ":${MY_VAR}:" != *":Value1:"* ]] && export MY_VAR="${MY_VAR}:Value1"
             """,
-            ).rstrip()
         )
 
     # ----------------------------------------------------------------------
     def test_Multiple(self) -> None:
         command = BashCommandVisitor().Accept(Augment("MY_VAR", ["Value1", "Value2", "Value3"]))
 
-        assert (
-            command
-            == textwrap.dedent(
-                """\
+        assert command == textwrap.dedent(
+            """\
             [[ ":${MY_VAR}:" != *":Value1:"* ]] && export MY_VAR="${MY_VAR}:Value1"
             [[ ":${MY_VAR}:" != *":Value2:"* ]] && export MY_VAR="${MY_VAR}:Value2"
             [[ ":${MY_VAR}:" != *":Value3:"* ]] && export MY_VAR="${MY_VAR}:Value3"
             """,
-            ).rstrip()
         )
 
     # ----------------------------------------------------------------------
     def test_AppendValues(self) -> None:
         command = BashCommandVisitor().Accept(Augment("MY_VAR", ["Value1", "Value2"], append_values=True))
 
-        assert (
-            command
-            == textwrap.dedent(
-                """\
+        assert command == textwrap.dedent(
+            """\
             [[ ":${MY_VAR}:" != *":Value1:"* ]] && export MY_VAR="Value1:${MY_VAR}"
             [[ ":${MY_VAR}:" != *":Value2:"* ]] && export MY_VAR="Value2:${MY_VAR}"
             """,
-            ).rstrip()
         )
 
 
@@ -309,14 +300,14 @@ class TestExitOnError:
 def test_EchoOff() -> None:
     command = BashCommandVisitor().Accept(EchoOff())
 
-    assert command == "set +x"
+    assert command == "set +x\n\n"
 
 
 # ----------------------------------------------------------------------
 def test_PersistError() -> None:
     command = BashCommandVisitor().Accept(PersistError(variable_name="MY_ERROR"))
 
-    assert command == "MY_ERROR=$?"
+    assert command == "MY_ERROR=$?\n"
 
 
 # ----------------------------------------------------------------------
@@ -325,26 +316,20 @@ class TestPushDirectory:
     def test_Standard(self) -> None:
         command = BashCommandVisitor().Accept(PushDirectory(value=Path("/my/dir")))
 
-        assert (
-            command
-            == textwrap.dedent(
-                """\
+        assert command == textwrap.dedent(
+            """\
             pushd "/my/dir" > /dev/null
             """,
-            ).rstrip()
         )
 
     # ----------------------------------------------------------------------
     def test_None(self) -> None:
         command = BashCommandVisitor().Accept(PushDirectory(value=None))
 
-        assert (
-            command
-            == textwrap.dedent(
-                """\
+        assert command == textwrap.dedent(
+            """\
             pushd $( cd "$( dirname "${BASH_SOURCE[0]}" )" > /dev/null 2>&1 && pwd ) > /dev/null
             """,
-            ).rstrip()
         )
 
 
@@ -352,13 +337,10 @@ class TestPushDirectory:
 def test_PopDirectory() -> None:
     command = BashCommandVisitor().Accept(PopDirectory())
 
-    assert (
-        command
-        == textwrap.dedent(
-            """\
+    assert command == textwrap.dedent(
+        """\
         popd > /dev/null
         """,
-        ).rstrip()
     )
 
 
@@ -366,4 +348,4 @@ def test_PopDirectory() -> None:
 def test_Raw() -> None:
     command = BashCommandVisitor().Accept(Raw("some raw command"))
 
-    assert command == "some raw command"
+    assert command == "some raw command\n"

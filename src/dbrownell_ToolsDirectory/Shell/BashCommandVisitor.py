@@ -54,7 +54,7 @@ class BashCommandVisitor(CommandVisitor):
 
             output.append(f'echo "{line}"')
 
-        return " && ".join(output)
+        return " && ".join(output) + "\n"
 
     # ----------------------------------------------------------------------
     @override
@@ -62,11 +62,14 @@ class BashCommandVisitor(CommandVisitor):
         self,
         command: Call,
     ) -> str | None:
-        result = f"source {command.command_line}"
+        result = f"source {command.command_line}\n"
         if command.exit_on_error:
-            result += "\n{}".format(
-                self.Accept(ExitOnError(use_return_statement=command.exit_via_return_statement))
+            exit_on_error_result = self.Accept(
+                ExitOnError(use_return_statement=command.exit_via_return_statement)
             )
+
+            if exit_on_error_result:
+                result += exit_on_error_result
 
         return result
 
@@ -76,12 +79,15 @@ class BashCommandVisitor(CommandVisitor):
         self,
         command: Execute,
     ) -> str | None:
-        result = command.command_line
+        result = command.command_line + "\n"
 
         if command.exit_on_error:
-            result += "\n{}".format(
-                self.Accept(ExitOnError(use_return_statement=command.exit_via_return_statement))
+            exit_on_error_result = self.Accept(
+                ExitOnError(use_return_statement=command.exit_via_return_statement)
             )
+
+            if exit_on_error_result:
+                result += exit_on_error_result
 
         return result
 
@@ -92,14 +98,14 @@ class BashCommandVisitor(CommandVisitor):
         command: Set,
     ) -> str | None:
         if command.value_or_values is None:
-            return f"unset {command.name}"
+            return f"unset {command.name}\n"
 
         values = ":".join(command.EnumValues())
 
         values = values.removeprefix('"')
         values = values.removesuffix('"')
 
-        return f'export {command.name}="{values}"'
+        return f'export {command.name}="{values}"\n'
 
     # ----------------------------------------------------------------------
     @override
@@ -120,7 +126,7 @@ class BashCommandVisitor(CommandVisitor):
 
         statements: list[str] = [statement_template.format(value=value) for value in command.EnumValues()]
 
-        return "\n".join(statements)
+        return "\n".join(statements) + "\n"
 
     # ----------------------------------------------------------------------
     @override
@@ -179,7 +185,7 @@ class BashCommandVisitor(CommandVisitor):
         self,
         command: EchoOff,  # noqa: ARG002
     ) -> str | None:
-        return "set +x"
+        return "set +x\n\n"
 
     # ----------------------------------------------------------------------
     @override
@@ -187,7 +193,7 @@ class BashCommandVisitor(CommandVisitor):
         self,
         command: PersistError,
     ) -> str | None:
-        return f"{command.variable_name}=$?"
+        return f"{command.variable_name}=$?\n"
 
     # ----------------------------------------------------------------------
     @override
@@ -200,7 +206,7 @@ class BashCommandVisitor(CommandVisitor):
         else:
             directory = f'"{command.value.as_posix()}"'
 
-        return f"pushd {directory} > /dev/null"
+        return f"pushd {directory} > /dev/null\n"
 
     # ----------------------------------------------------------------------
     @override
@@ -208,7 +214,7 @@ class BashCommandVisitor(CommandVisitor):
         self,
         command: PopDirectory,  # noqa: ARG002
     ) -> str | None:
-        return "popd > /dev/null"
+        return "popd > /dev/null\n"
 
     # ----------------------------------------------------------------------
     @override
@@ -216,4 +222,4 @@ class BashCommandVisitor(CommandVisitor):
         self,
         command: Raw,
     ) -> str | None:
-        return command.value
+        return command.value.removesuffix("\n") + "\n"
