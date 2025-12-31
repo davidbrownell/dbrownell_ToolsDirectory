@@ -3,8 +3,8 @@ import re
 import textwrap
 
 from enum import Enum
-from pathlib import Path  # noqa: TC003
-from typing import Annotated
+from pathlib import Path
+from typing import Annotated, TYPE_CHECKING
 
 import typer
 
@@ -12,7 +12,13 @@ from dbrownell_Common.Streams.DoneManager import DoneManager, Flags as DoneManag
 from semantic_version import Version as SemVer
 from typer.core import TyperGroup
 
+from dbrownell_ToolsDirectory.CreateShellCommands import CreateShellCommands
+from dbrownell_ToolsDirectory.Shell.BashCommandVisitor import BashCommandVisitor
+from dbrownell_ToolsDirectory.Shell.BatchCommandVisitor import BatchCommandVisitor
 from dbrownell_ToolsDirectory import ToolInfo
+
+if TYPE_CHECKING:
+    from dbrownell_ToolsDirectory.Shell.Commands import Command
 
 
 # ----------------------------------------------------------------------
@@ -77,17 +83,23 @@ def _CreateHelp() -> str:
 # ----------------------------------------------------------------------
 @app.command("EntryPoint", help=_CreateHelp(), no_args_is_help=True)
 def EntryPoint(  # noqa: D103
-    tool_directory: Annotated[
+    output_filename: Annotated[
         Path,
-        typer.Argument(exists=True, file_okay=False, resolve_path=True, help="Path to the tool directory."),
+        typer.Argument(dir_okay=False, resolve_path=True, path_type=Path, help="Path to the output file."),  # ty: ignore[no-matching-overload]
     ],
-    output_filename: Annotated[  # noqa: ARG001
-        Path,
-        typer.Argument(dir_okay=False, resolve_path=True, help="Path to the output file."),
-    ],
-    output_type: Annotated[  # noqa: ARG001
+    output_type: Annotated[
         OutputType,
         typer.Argument(help="The type of output to generate."),
+    ],
+    tool_directory: Annotated[
+        Path,
+        typer.Argument(  # ty: ignore[no-matching-overload]
+            exists=True,
+            file_okay=False,
+            resolve_path=True,
+            path_type=Path,
+            help="Path to the tool directory.",
+        ),
     ],
     include: Annotated[
         list[str] | None,
@@ -135,6 +147,7 @@ def EntryPoint(  # noqa: D103
     with DoneManager.CreateCommandLine(
         flags=DoneManagerFlags.Create(verbose=verbose, debug=debug),
     ) as dm:
+        # Get the tools
         tool_infos = ToolInfo.GetToolInfos(
             dm,
             tool_directory,
@@ -147,9 +160,51 @@ def EntryPoint(  # noqa: D103
             no_generic_architectures=no_generic_architecture,
         )
 
-        # TODO: Display purposes only
-        for tool_info in tool_infos:
-            dm.WriteInfo(str(tool_info))
+        if not tool_infos:
+            dm.WriteError(f"No tools were found in '{tool_directory}'.\n")
+            return
+
+        # Display the tools
+        if dm.is_verbose:
+            for tool_info in tool_infos:
+                dm.WriteLine(
+                    textwrap.dedent(
+                        """\
+                        {name}
+                        {sep}
+                        Root:       {root}
+                        Versioned:  {versioned}
+                        Binary:     {binary}
+
+
+                        """,
+                    ).format(
+                        name=tool_info.name,
+                        sep="-" * max(len(tool_info.name), 10),
+                        root=tool_info.root_directory,
+                        versioned=tool_info.versioned_directory,
+                        binary=tool_info.binary_directory,
+                    ),
+                )
+
+        # Create the shell statements
+        commands: list[Command] = CreateShellCommands(tool_infos)
+
+        # Write the output
+        if output_type == OutputType.Bash:
+            command_visitor = BashCommandVisitor()
+        elif output_type == OutputType.Batch:
+            command_visitor = BatchCommandVisitor()
+        else:
+            assert False, output_type  # noqa: B011, PT015  # pragma: no cover
+
+        output_filename.parent.mkdir(parents=True, exist_ok=True)
+        with output_filename.open("w", encoding="utf-8") as f:
+            for command in commands:
+                result = command_visitor.Accept(command)
+
+                if isinstance(result, str):
+                    f.write(result)
 
 
 # ----------------------------------------------------------------------

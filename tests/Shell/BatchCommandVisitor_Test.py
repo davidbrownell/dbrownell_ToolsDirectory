@@ -56,7 +56,7 @@ def test_Message(special_char) -> None:
     assert lines[2] == "echo Next Line."
     assert lines[3] == "echo. "
     assert lines[4] == "echo The last line."
-    assert lines[5] == "echo. "
+    assert lines[5] == "echo. \n"
 
 
 # ----------------------------------------------------------------------
@@ -81,7 +81,7 @@ class TestCall:
             ),
         )
 
-        assert command == "call the command"
+        assert command == "call the command\n"
 
 
 # ----------------------------------------------------------------------
@@ -106,7 +106,7 @@ class TestExecute:
             ),
         )
 
-        assert command == "the command"
+        assert command == "the command\n"
 
     # ----------------------------------------------------------------------
     @pytest.mark.parametrize("script_extension", [".bat", ".cmd"])
@@ -138,7 +138,7 @@ class TestSet:
             ),
         )
 
-        assert command == "SET MyVar="
+        assert command == "SET MyVar=\n"
 
     # ----------------------------------------------------------------------
     def test_SingleValue(self) -> None:
@@ -149,7 +149,7 @@ class TestSet:
             ),
         )
 
-        assert command == "SET MyVar=MyValue"
+        assert command == "SET MyVar=MyValue\n"
 
     # ----------------------------------------------------------------------
     def test_MultipleValues(self) -> None:
@@ -160,7 +160,7 @@ class TestSet:
             ),
         )
 
-        assert command == "SET MyVar=Value1;Value2;Value3"
+        assert command == "SET MyVar=Value1;Value2;Value3\n"
 
 
 # ----------------------------------------------------------------------
@@ -180,7 +180,7 @@ class TestAugment:
             """\
             REM Value1
             echo ";%MyVar%;" | findstr /C:";Value1;" >nul
-            if %ERRORLEVEL% EQ 0 goto skip_<UNIQUE_ID_1>
+            if %ERRORLEVEL% == 0 goto skip_<UNIQUE_ID_1>
 
             SET MyVar=%MyVar%;Value1
 
@@ -204,7 +204,7 @@ class TestAugment:
             """\
             REM ValueA
             echo ";%MyVar%;" | findstr /C:";ValueA;" >nul
-            if %ERRORLEVEL% EQ 0 goto skip_<UNIQUE_ID_1>
+            if %ERRORLEVEL% == 0 goto skip_<UNIQUE_ID_1>
 
             SET MyVar=%MyVar%;ValueA
 
@@ -212,7 +212,7 @@ class TestAugment:
 
             REM ValueB
             echo ";%MyVar%;" | findstr /C:";ValueB;" >nul
-            if %ERRORLEVEL% EQ 0 goto skip_<UNIQUE_ID_2>
+            if %ERRORLEVEL% == 0 goto skip_<UNIQUE_ID_2>
 
             SET MyVar=%MyVar%;ValueB
 
@@ -237,7 +237,7 @@ class TestAugment:
             """\
             REM ValueA
             echo ";%MyVar%;" | findstr /C:";ValueA;" >nul
-            if %ERRORLEVEL% EQ 0 goto skip_<UNIQUE_ID_1>
+            if %ERRORLEVEL% == 0 goto skip_<UNIQUE_ID_1>
 
             SET MyVar=ValueA;%MyVar%
 
@@ -245,7 +245,7 @@ class TestAugment:
 
             REM ValueB
             echo ";%MyVar%;" | findstr /C:";ValueB;" >nul
-            if %ERRORLEVEL% EQ 0 goto skip_<UNIQUE_ID_2>
+            if %ERRORLEVEL% == 0 goto skip_<UNIQUE_ID_2>
 
             SET MyVar=ValueB;%MyVar%
 
@@ -336,33 +336,33 @@ class TestExitOnError:
     def test_Standard(self) -> None:
         command = BatchCommandVisitor().Accept(ExitOnError())
 
-        assert command == "if %ERRORLEVEL% NEQ 0 (exit /B %ERRORLEVEL%)"
+        assert command == "if %ERRORLEVEL% NEQ 0 (exit /B %ERRORLEVEL%)\n"
 
     # ----------------------------------------------------------------------
     def test_CustomVariable(self) -> None:
         command = BatchCommandVisitor().Accept(ExitOnError("MY_ERROR_VAR"))
 
-        assert command == "if %MY_ERROR_VAR% NEQ 0 (exit /B %MY_ERROR_VAR%)"
+        assert command == "if %MY_ERROR_VAR% NEQ 0 (exit /B %MY_ERROR_VAR%)\n"
 
     # ----------------------------------------------------------------------
     def test_ReturnCode(self) -> None:
         command = BatchCommandVisitor().Accept(ExitOnError(return_code=10))
 
-        assert command == "if %ERRORLEVEL% NEQ 0 (exit /B 10)"
+        assert command == "if %ERRORLEVEL% NEQ 0 (exit /B 10)\n"
 
 
 # ----------------------------------------------------------------------
 def test_EchoOff() -> None:
     command = BatchCommandVisitor().Accept(EchoOff())
 
-    assert command == "@echo off"
+    assert command == "@echo off\n\n"
 
 
 # ----------------------------------------------------------------------
 def test_PersistError() -> None:
     command = BatchCommandVisitor().Accept(PersistError("MY_ERROR_VAR"))
 
-    assert command == "SET MY_ERROR_VAR=%ERRORLEVEL%"
+    assert command == "SET MY_ERROR_VAR=%ERRORLEVEL%\n"
 
 
 # ----------------------------------------------------------------------
@@ -371,24 +371,24 @@ class TestPushDirectory:
     def test_Standard(self) -> None:
         command = BatchCommandVisitor().Accept(PushDirectory(Path(r"C:\My\Directory")))
 
-        assert command == r'pushd "C:\My\Directory"'
+        assert command == 'pushd "C:\\My\\Directory"\n'
 
     # ----------------------------------------------------------------------
     def test_None(self) -> None:
         command = BatchCommandVisitor().Accept(PushDirectory(None))
 
-        assert command == 'pushd "%~dp0"'
+        assert command == 'pushd "%~dp0"\n'
 
 
 # ----------------------------------------------------------------------
 def test_PopDirectory() -> None:
     command = BatchCommandVisitor().Accept(PopDirectory())
 
-    assert command == "popd"
+    assert command == "popd\n"
 
 
 # ----------------------------------------------------------------------
 def test_Raw() -> None:
     command = BatchCommandVisitor().Accept(Raw("This is a raw command"))
 
-    assert command == "This is a raw command"
+    assert command == "This is a raw command\n"

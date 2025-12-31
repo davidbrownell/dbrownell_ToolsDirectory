@@ -1,3 +1,6 @@
+import re
+import textwrap
+
 from dataclasses import dataclass
 from pathlib import Path
 from unittest.mock import Mock
@@ -15,14 +18,11 @@ from dbrownell_ToolsDirectory.ExecuteImpl import __main__
 
 # ----------------------------------------------------------------------
 def test_NoArgs(fs, monkeypatch):
-    execute_result = _Execute(fs, monkeypatch, [])
-    assert isinstance(execute_result, tuple)
-
-    result = execute_result[0]
-    args = execute_result[1]
+    result, args = _Execute(fs, monkeypatch, [])
 
     assert result.exit_code == 0
 
+    assert args is not None
     assert args.tool_directory
     assert args.include_tools == set()
     assert args.exclude_tools == set()
@@ -35,14 +35,11 @@ def test_NoArgs(fs, monkeypatch):
 
 # ----------------------------------------------------------------------
 def test_IncludesAndExcludes(fs, monkeypatch):
-    execute_result = _Execute(fs, monkeypatch, ["--include", "A", "--include", "B", "--exclude", "C"])
-    assert isinstance(execute_result, tuple)
-
-    result = execute_result[0]
-    args = execute_result[1]
+    result, args = _Execute(fs, monkeypatch, ["--include", "A", "--include", "B", "--exclude", "C"])
 
     assert result.exit_code == 0
 
+    assert args is not None
     assert args.tool_directory
     assert args.include_tools == set(["A", "B"])
     assert args.exclude_tools == set(["C"])
@@ -55,19 +52,15 @@ def test_IncludesAndExcludes(fs, monkeypatch):
 
 # ----------------------------------------------------------------------
 def test_ToolVersions(fs, monkeypatch):
-    execute_result = _Execute(
+    result, args = _Execute(
         fs,
         monkeypatch,
         ["--tool-version", "ToolA=1.2.3", "--tool-version", "ToolB=4.5.6"],
     )
 
-    assert isinstance(execute_result, tuple)
-
-    result = execute_result[0]
-    args = execute_result[1]
-
     assert result.exit_code == 0
 
+    assert args is not None
     assert args.tool_directory
     assert args.include_tools == set()
     assert args.exclude_tools == set()
@@ -83,30 +76,84 @@ def test_ToolVersions(fs, monkeypatch):
 
 # ----------------------------------------------------------------------
 def test_InvalidToolVersionString(fs, monkeypatch):
-    result = _Execute(
+    result, args = _Execute(
         fs,
         monkeypatch,
         ["--tool-version", "InvalidToolVersionString"],
         expect_failure=True,
     )
 
-    assert isinstance(result, Result)
-
     assert result.exit_code != 0
+    assert args is None
 
 
 # ----------------------------------------------------------------------
 def test_InvalidToolVersionValue(fs, monkeypatch):
-    result = _Execute(
+    result, args = _Execute(
         fs,
         monkeypatch,
         ["--tool-version", "ToolA=NotASemVer"],
         expect_failure=True,
     )
 
-    assert isinstance(result, Result)
+    assert result.exit_code != 0
+    assert args is None
+
+
+# ----------------------------------------------------------------------
+def test_NoToolsFound(fs, monkeypatch):
+    result, args = _Execute(fs, monkeypatch, [], tool_infos=[])
 
     assert result.exit_code != 0
+
+
+# ----------------------------------------------------------------------
+def test_Bash(fs, monkeypatch):
+    output_filename = Path("output.sh")
+
+    result, args = _Execute(fs, monkeypatch, [], output_type="bash", output_filename=output_filename)
+
+    assert result.exit_code == 0
+
+    assert output_filename.is_file()
+
+    content = output_filename.read_text(encoding="utf-8")
+
+    assert _ScrubBashOutput(content) == textwrap.dedent(
+        """\
+        set +x
+
+        [[ ":${PATH}:" != *":<Mock name='mock.binary_directory' ID_1>:"* ]] && export PATH="${PATH}:<Mock name='mock.binary_directory' ID_1>"
+        """,
+    )
+
+
+# ----------------------------------------------------------------------
+def test_Batch(fs, monkeypatch):
+    output_filename = Path("output.bat")
+
+    result, args = _Execute(fs, monkeypatch, [], output_type="batch", output_filename=output_filename)
+
+    assert result.exit_code == 0
+
+    assert output_filename.is_file()
+
+    content = output_filename.read_text(encoding="utf-8")
+
+    assert _ScrubBatchOutput(content) == textwrap.dedent(
+        """\
+        @echo off
+
+        REM <Mock name='mock.binary_directory' ID_1>
+        echo ";%PATH%;" | findstr /C:";<Mock name='mock.binary_directory' ID_1>;" >nul
+        if %ERRORLEVEL% == 0 goto GUID_1
+
+        SET PATH=%PATH%;<Mock name='mock.binary_directory' ID_1>
+
+        :GUID_1
+
+        """,
+    )
 
 
 # ----------------------------------------------------------------------
@@ -130,23 +177,85 @@ def _Execute(
     fs: FakeFilesystem,
     monkeypatch: MonkeyPatch,
     args: list[str],
+    tool_infos: list[ToolInfo.ToolInfo] | None = None,
     tool_directory: Path = Path("does/not/exist"),
     output_filename: Path = Path("output.file"),
     output_type: str = "bash",
     *,
     expect_failure: bool = False,
-) -> tuple[Result, _Args] | Result:
+) -> tuple[Result, _Args | None]:
     fs.create_file(tool_directory / "dummy.txt")
 
-    mock = Mock(return_value=[])
+    if tool_infos is None:
+        tool_infos = [Mock()]
 
-    monkeypatch.setattr("dbrownell_ToolsDirectory.ToolInfo.GetToolInfos", mock)
+    mock = Mock(return_value=tool_infos)
 
-    result = CliRunner().invoke(__main__.app, [str(tool_directory), str(output_filename), output_type] + args)
+    # ----------------------------------------------------------------------
+    def GetToolInfos(*args, **kwargs) -> list[ToolInfo.ToolInfo]:
+        mock(*args, **kwargs)
+        return tool_infos
+
+    # ----------------------------------------------------------------------
+
+    monkeypatch.setattr("dbrownell_ToolsDirectory.ToolInfo.GetToolInfos", GetToolInfos)
+
+    result = CliRunner().invoke(__main__.app, [str(output_filename), output_type, str(tool_directory)] + args)
     if expect_failure:
         assert result.exit_code != 0
-        return result
+        return result, None
 
     assert mock.call_count == 1
 
     return result, _Args(*mock.mock_calls[0].args, **mock.mock_calls[0].kwargs)
+
+
+# ----------------------------------------------------------------------
+def _ScrubBatchOutput(content: str) -> str:
+    id_lookup: dict[str, str] = {}
+    guid_lookup: dict[str, str] = {}
+
+    # ----------------------------------------------------------------------
+    def IdReplace(match: re.Match) -> str:
+        value = match.group("id")
+
+        if value not in id_lookup:
+            id_lookup[value] = f"ID_{len(id_lookup) + 1}"
+
+        return id_lookup[value]
+
+    # ----------------------------------------------------------------------
+    def GuidReplace(match: re.Match) -> str:
+        value = match.group("guid")
+
+        if value not in guid_lookup:
+            guid_lookup[value] = f"GUID_{len(guid_lookup) + 1}"
+
+        return guid_lookup[value]
+
+    # ----------------------------------------------------------------------
+
+    content = re.sub(r"id='(?P<id>[0-9]+)'", IdReplace, content)
+    content = re.sub("skip_(?P<guid>[0-9a-fA-F]{32})", GuidReplace, content)
+
+    return content
+
+
+# ----------------------------------------------------------------------
+def _ScrubBashOutput(content: str) -> str:
+    id_lookup: dict[str, str] = {}
+
+    # ----------------------------------------------------------------------
+    def IdReplace(match: re.Match) -> str:
+        value = match.group("id")
+
+        if value not in id_lookup:
+            id_lookup[value] = f"ID_{len(id_lookup) + 1}"
+
+        return id_lookup[value]
+
+    # ----------------------------------------------------------------------
+
+    content = re.sub(r"id='(?P<id>[0-9]+)'", IdReplace, content)
+
+    return content

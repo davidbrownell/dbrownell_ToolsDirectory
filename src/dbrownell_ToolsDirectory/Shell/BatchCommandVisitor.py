@@ -67,7 +67,7 @@ class BatchCommandVisitor(CommandVisitor):
 
             output.append(f"echo {line}")
 
-        return " && ".join(output)
+        return " && ".join(output) + "\n"
 
     # ----------------------------------------------------------------------
     @override
@@ -75,9 +75,12 @@ class BatchCommandVisitor(CommandVisitor):
         self,
         command: Call,
     ) -> str | None:
-        result = f"call {command.command_line}"
+        result = f"call {command.command_line}\n"
         if command.exit_on_error:
-            result += "\n{}\n".format(self.Accept(ExitOnError()))
+            exit_on_error_result = self.Accept(ExitOnError())
+
+            if exit_on_error_result:
+                result += exit_on_error_result
 
         return result
 
@@ -94,8 +97,13 @@ class BatchCommandVisitor(CommandVisitor):
         else:
             result = command.command_line
 
+        result += "\n"
+
         if command.exit_on_error:
-            result += "\n{}\n".format(self.Accept(ExitOnError()))
+            exit_on_error_result = self.Accept(ExitOnError())
+
+            if exit_on_error_result:
+                result += exit_on_error_result
 
         return result
 
@@ -106,9 +114,9 @@ class BatchCommandVisitor(CommandVisitor):
         command: Set,
     ) -> str | None:
         if command.value_or_values is None:
-            return f"SET {command.name}="
+            return f"SET {command.name}=\n"
 
-        return f"SET {command.name}={';'.join(command.EnumValues())}"
+        return f"SET {command.name}={';'.join(command.EnumValues())}\n"
 
     # ----------------------------------------------------------------------
     @override
@@ -125,7 +133,7 @@ class BatchCommandVisitor(CommandVisitor):
             """\
             REM {{value}}
             echo ";%{name}%;" | findstr /C:";{{value}};" >nul
-            if %ERRORLEVEL% EQ 0 goto skip_{{unique_id}}
+            if %ERRORLEVEL% == 0 goto skip_{{unique_id}}
 
             SET {name}={add_statement_template}
 
@@ -173,7 +181,7 @@ class BatchCommandVisitor(CommandVisitor):
     ) -> str | None:
         variable_name = command.variable_name or "ERRORLEVEL"
 
-        return "if %{}% NEQ 0 (exit /B {})".format(
+        return "if %{}% NEQ 0 (exit /B {})\n".format(
             variable_name,
             command.return_code if command.return_code is not None else f"%{variable_name}%",
         )
@@ -184,7 +192,7 @@ class BatchCommandVisitor(CommandVisitor):
         self,
         command: EchoOff,  # noqa: ARG002
     ) -> str | None:
-        return "@echo off"
+        return "@echo off\n\n"
 
     # ----------------------------------------------------------------------
     @override
@@ -192,7 +200,7 @@ class BatchCommandVisitor(CommandVisitor):
         self,
         command: PersistError,
     ) -> str | None:
-        return f"SET {command.variable_name}=%ERRORLEVEL%"
+        return f"SET {command.variable_name}=%ERRORLEVEL%\n"
 
     # ----------------------------------------------------------------------
     @override
@@ -201,7 +209,7 @@ class BatchCommandVisitor(CommandVisitor):
         command: PushDirectory,
     ) -> str | None:
         directory = command.value or "%~dp0"
-        return f'pushd "{directory}"'
+        return f'pushd "{directory}"\n'
 
     # ----------------------------------------------------------------------
     @override
@@ -209,7 +217,7 @@ class BatchCommandVisitor(CommandVisitor):
         self,
         command: PopDirectory,  # noqa: ARG002
     ) -> str | None:
-        return "popd"
+        return "popd\n"
 
     # ----------------------------------------------------------------------
     @override
@@ -217,4 +225,4 @@ class BatchCommandVisitor(CommandVisitor):
         self,
         command: Raw,
     ) -> str | None:
-        return command.value
+        return command.value.removesuffix("\n") + "\n"
