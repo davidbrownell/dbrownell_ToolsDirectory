@@ -60,7 +60,7 @@ def _CreateHelp() -> str:
                     |- \[<architecture:{architectures}>]
                        |- \[bin]
 
-        Each of these examples are valid:
+        Each of these examples are supported:
 
         |- Tools
            |- Tool1
@@ -75,8 +75,8 @@ def _CreateHelp() -> str:
 
         """,
     ).format(
-        operating_systems=" | ".join(ToolInfo.OperatingSystemType.Linux.strings),
-        architectures=" | ".join(ToolInfo.ArchitectureType.x64.strings),
+        operating_systems=" | ".join(ToolInfo.OperatingSystemType.Linux.string_map.keys()),
+        architectures=" | ".join(ToolInfo.ArchitectureType.x64.string_map.keys()),
     )
 
 
@@ -167,23 +167,35 @@ def EntryPoint(  # noqa: D103
         # Display the tools
         if dm.is_verbose:
             for tool_info in tool_infos:
+                header = tool_info.name
+
+                if tool_info.version is not None:
+                    header += f" (v{tool_info.version})"
+
                 dm.WriteLine(
                     textwrap.dedent(
                         """\
-                        {name}
+                        {header}
                         {sep}
-                        Root:       {root}
-                        Versioned:  {versioned}
-                        Binary:     {binary}
-
+                        Root:              {root}
+                        Versioned:         {versioned}
+                        Binary:            {binary}
+                        Operating System:  {os}
+                        Architecture:      {arch}
 
                         """,
                     ).format(
-                        name=tool_info.name,
-                        sep="-" * max(len(tool_info.name), 10),
+                        header=header,
+                        sep="-" * max(len(header), 17),
                         root=tool_info.root_directory,
                         versioned=tool_info.versioned_directory,
                         binary=tool_info.binary_directory,
+                        os=tool_info.operating_system.name
+                        if isinstance(tool_info.operating_system, ToolInfo.OperatingSystemType)
+                        else tool_info.operating_system,
+                        arch=tool_info.architecture.name
+                        if isinstance(tool_info.architecture, ToolInfo.ArchitectureType)
+                        else tool_info.architecture,
                     ),
                 )
 

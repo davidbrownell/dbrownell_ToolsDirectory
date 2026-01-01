@@ -10,7 +10,13 @@ def test_Single() -> None:
     commands: list[Command] = CreateShellCommands(
         [
             ToolInfo(
-                "the tool", Path("/some/tool"), Path("/some/tool/version"), Path("/some/tool/version/bin")
+                "the tool",
+                None,
+                None,
+                None,
+                Path("/some/tool"),
+                Path("/some/tool/version"),
+                Path("/some/tool/version/bin"),
             ),
         ],
     )
@@ -26,11 +32,31 @@ def test_Multiple() -> None:
     commands: list[Command] = CreateShellCommands(
         [
             ToolInfo(
-                "tool A", Path("/some/toolA"), Path("/some/toolA/version"), Path("/some/toolA/version/bin")
+                "tool A",
+                None,
+                None,
+                None,
+                Path("/some/toolA"),
+                Path("/some/toolA/version"),
+                Path("/some/toolA/version/bin"),
             ),
-            ToolInfo("tool B", Path("/some/toolB"), Path("/some/toolB/version"), Path("/some/toolB/version")),
             ToolInfo(
-                "tool C", Path("/some/toolC"), Path("/some/toolC/version"), Path("/some/toolC/version/bin")
+                "tool B",
+                None,
+                None,
+                None,
+                Path("/some/toolB"),
+                Path("/some/toolB/version"),
+                Path("/some/toolB/version"),
+            ),
+            ToolInfo(
+                "tool C",
+                None,
+                None,
+                None,
+                Path("/some/toolC"),
+                Path("/some/toolC/version"),
+                Path("/some/toolC/version/bin"),
             ),
         ],
     )
