@@ -2,6 +2,7 @@ import platform
 import sys
 
 from pathlib import Path
+from unittest.mock import Mock
 from typing import cast
 
 from dbrownell_Common.Streams.DoneManager import DoneManager
@@ -62,6 +63,169 @@ class TestArchitectureType:
             "ARM": ToolInfo.ArchitectureType.ARM,
             "Generic": "Generic",
         }
+
+
+# ----------------------------------------------------------------------
+class TestToolInfo:
+    # ----------------------------------------------------------------------
+    def test_Standard(self) -> None:
+        name = Mock()
+        version = Mock()
+        operating_system = Mock()
+        architecture = Mock()
+        root_dir = Mock()
+        versioned_dir = Mock()
+        binary_dir = Mock()
+
+        tool_info = ToolInfo.ToolInfo(
+            name,
+            version,
+            operating_system,  # ty: ignore[invalid-argument-type]
+            architecture,  # ty: ignore[invalid-argument-type]
+            root_dir,
+            versioned_dir,
+            binary_dir,
+        )
+
+        assert tool_info.name is name
+        assert tool_info.version is version
+        assert tool_info.operating_system is operating_system
+        assert tool_info.architecture is architecture
+        assert tool_info.root_directory is root_dir
+        assert tool_info.versioned_directory is versioned_dir
+        assert tool_info.binary_directory is binary_dir
+
+    # ----------------------------------------------------------------------
+    class TestGeneratePotentialEnvFiles:
+        # ----------------------------------------------------------------------
+        def test_Simple(self) -> None:
+            assert list(
+                ToolInfo.ToolInfo(
+                    "TheTool",
+                    None,
+                    None,
+                    None,
+                    Path("/root"),
+                    Path("/root"),
+                    Path("/root"),
+                ).GeneratePotentialEnvFiles()
+            ) == [
+                Path("/root/TheTool.env"),
+            ]
+
+        # ----------------------------------------------------------------------
+        def test_WithVersion(self) -> None:
+            assert list(
+                ToolInfo.ToolInfo(
+                    "TheTool",
+                    SemVer("1.2.3"),
+                    None,
+                    None,
+                    Path("/root"),
+                    Path("/root/v1.2.3"),
+                    Path("/root"),
+                ).GeneratePotentialEnvFiles()
+            ) == [
+                Path("/root/TheTool.env"),
+                Path("/root/TheTool-v1.2.3.env"),
+                Path("/root/v1.2.3/TheTool.env"),
+            ]
+
+        # ----------------------------------------------------------------------
+        def test_WithOperatingSystem(self) -> None:
+            assert list(
+                ToolInfo.ToolInfo(
+                    "TheTool",
+                    None,
+                    ToolInfo.OperatingSystemType.Linux,
+                    None,
+                    Path("/root"),
+                    Path("/root/Linux"),
+                    Path("/root"),
+                ).GeneratePotentialEnvFiles()
+            ) == [
+                Path("/root/TheTool.env"),
+                Path("/root/TheTool-Linux.env"),
+                Path("/root/Linux/TheTool.env"),
+            ]
+
+        # ----------------------------------------------------------------------
+        def test_WithArchitecture(self) -> None:
+            assert list(
+                ToolInfo.ToolInfo(
+                    "TheTool",
+                    None,
+                    None,
+                    ToolInfo.ArchitectureType.x64,
+                    Path("/root"),
+                    Path("/root/x64"),
+                    Path("/root"),
+                ).GeneratePotentialEnvFiles()
+            ) == [
+                Path("/root/TheTool.env"),
+                Path("/root/TheTool-x64.env"),
+                Path("/root/x64/TheTool.env"),
+            ]
+
+        # ----------------------------------------------------------------------
+        def test_Complex(self) -> None:
+            assert list(
+                ToolInfo.ToolInfo(
+                    "TheTool",
+                    SemVer("1.2.3"),
+                    ToolInfo.OperatingSystemType.Linux,
+                    ToolInfo.ArchitectureType.x64,
+                    Path("/root/TheTool"),
+                    Path("/root/TheTool/v1.2.3/Linux/x64"),
+                    Path("/root"),
+                ).GeneratePotentialEnvFiles()
+            ) == [
+                Path("/root/TheTool/TheTool.env"),
+                Path("/root/TheTool/TheTool-v1.2.3.env"),
+                Path("/root/TheTool/TheTool-Linux.env"),
+                Path("/root/TheTool/TheTool-v1.2.3-Linux.env"),
+                Path("/root/TheTool/TheTool-x64.env"),
+                Path("/root/TheTool/TheTool-v1.2.3-x64.env"),
+                Path("/root/TheTool/TheTool-Linux-x64.env"),
+                Path("/root/TheTool/TheTool-v1.2.3-Linux-x64.env"),
+                Path("/root/TheTool/v1.2.3/TheTool.env"),
+                Path("/root/TheTool/v1.2.3/TheTool-Linux.env"),
+                Path("/root/TheTool/v1.2.3/TheTool-x64.env"),
+                Path("/root/TheTool/v1.2.3/TheTool-Linux-x64.env"),
+                Path("/root/TheTool/v1.2.3/Linux/TheTool.env"),
+                Path("/root/TheTool/v1.2.3/Linux/TheTool-x64.env"),
+                Path("/root/TheTool/v1.2.3/Linux/x64/TheTool.env"),
+            ]
+
+        # ----------------------------------------------------------------------
+        def test_CustomExtension(self) -> None:
+            assert list(
+                ToolInfo.ToolInfo(
+                    "TheTool",
+                    SemVer("1.2.3"),
+                    ToolInfo.OperatingSystemType.Linux,
+                    ToolInfo.ArchitectureType.x64,
+                    Path("/root/TheTool"),
+                    Path("/root/TheTool/v1.2.3/Linux/x64"),
+                    Path("/root"),
+                ).GeneratePotentialEnvFiles(".envrc")
+            ) == [
+                Path("/root/TheTool/TheTool.envrc"),
+                Path("/root/TheTool/TheTool-v1.2.3.envrc"),
+                Path("/root/TheTool/TheTool-Linux.envrc"),
+                Path("/root/TheTool/TheTool-v1.2.3-Linux.envrc"),
+                Path("/root/TheTool/TheTool-x64.envrc"),
+                Path("/root/TheTool/TheTool-v1.2.3-x64.envrc"),
+                Path("/root/TheTool/TheTool-Linux-x64.envrc"),
+                Path("/root/TheTool/TheTool-v1.2.3-Linux-x64.envrc"),
+                Path("/root/TheTool/v1.2.3/TheTool.envrc"),
+                Path("/root/TheTool/v1.2.3/TheTool-Linux.envrc"),
+                Path("/root/TheTool/v1.2.3/TheTool-x64.envrc"),
+                Path("/root/TheTool/v1.2.3/TheTool-Linux-x64.envrc"),
+                Path("/root/TheTool/v1.2.3/Linux/TheTool.envrc"),
+                Path("/root/TheTool/v1.2.3/Linux/TheTool-x64.envrc"),
+                Path("/root/TheTool/v1.2.3/Linux/x64/TheTool.envrc"),
+            ]
 
 
 # ----------------------------------------------------------------------

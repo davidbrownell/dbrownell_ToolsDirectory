@@ -11,6 +11,7 @@ from dbrownell_Common.InflectEx import inflect
 from semantic_version import Version as SemVer
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
     from pathlib import Path
 
     from dbrownell_Common.Streams.DoneManager import DoneManager
@@ -125,6 +126,113 @@ class ToolInfo:
 
     binary_directory: Path
     """Binary directory of a specific version of the tool."""
+
+    # ----------------------------------------------------------------------
+    def GeneratePotentialEnvFiles(self, file_extension: str = ".env") -> Generator[Path]:
+        """Generate potential filenames for environment files, ordered from the least- to most-specific."""
+
+        # ----------------------------------------------------------------------
+        def ApplyVersionSuffixes(potential_suffixes: list[str]) -> None:
+            if self.version is None:
+                return
+
+            potential_suffixes.append(f"-v{self.version}")
+
+        # ----------------------------------------------------------------------
+        def ApplyOperatingSystemSuffixes(potential_suffixes: list[str]) -> None:
+            if self.operating_system is None:
+                return
+
+            suffix = (
+                self.operating_system.name
+                if isinstance(self.operating_system, OperatingSystemType)
+                else self.operating_system
+            )
+
+            potential_suffixes.append(f"-{suffix}")
+            potential_suffixes += [
+                f"{potential_suffix}-{suffix}" for potential_suffix in potential_suffixes[:-1]
+            ]
+
+        # ----------------------------------------------------------------------
+        def ApplyArchitectureSuffixes(potential_suffixes: list[str]) -> None:
+            if self.architecture is None:
+                return
+
+            suffix = (
+                self.architecture.name
+                if isinstance(self.architecture, ArchitectureType)
+                else self.architecture
+            )
+
+            potential_suffixes.append(f"-{suffix}")
+            potential_suffixes += [
+                f"{potential_suffix}-{suffix}" for potential_suffix in potential_suffixes[:-1]
+            ]
+
+        # ----------------------------------------------------------------------
+
+        # Get a list of directories between the root and the versioned directory. Append "fake_file"
+        # so that versioned_directory is included in the parents (without "fake_file", the implementation
+        # thinks that versioned_directory is a file and not a directory).
+        relative_paths = list(
+            reversed((self.versioned_directory / "fake_file").relative_to(self.root_directory).parents)
+        )
+
+        # At most, there can be relative paths for:
+        # 1) Root
+        # 2) Version
+        # 3) Operating System
+        # 4) Architecture
+        assert len(relative_paths) <= 4, relative_paths  # noqa: PLR2004
+        relative_path_offset = 0
+
+        # Root
+        root = self.root_directory / relative_paths[relative_path_offset]
+
+        yield root / f"{self.name}{file_extension}"
+
+        potential_suffixes: list[str] = []
+
+        ApplyVersionSuffixes(potential_suffixes)
+        ApplyOperatingSystemSuffixes(potential_suffixes)
+        ApplyArchitectureSuffixes(potential_suffixes)
+
+        yield from [root / f"{self.name}{suffix}{file_extension}" for suffix in potential_suffixes]
+
+        # Version
+        if self.version is not None:
+            relative_path_offset += 1
+            root = self.root_directory / relative_paths[relative_path_offset]
+
+            yield root / f"{self.name}{file_extension}"
+
+            potential_suffixes = []
+
+            ApplyOperatingSystemSuffixes(potential_suffixes)
+            ApplyArchitectureSuffixes(potential_suffixes)
+
+            yield from [root / f"{self.name}{suffix}{file_extension}" for suffix in potential_suffixes]
+
+        # Operating System
+        if self.operating_system is not None:
+            relative_path_offset += 1
+            root = self.root_directory / relative_paths[relative_path_offset]
+
+            yield root / f"{self.name}{file_extension}"
+
+            potential_suffixes = []
+
+            ApplyArchitectureSuffixes(potential_suffixes)
+
+            yield from [root / f"{self.name}{suffix}{file_extension}" for suffix in potential_suffixes]
+
+        # Architecture
+        if self.architecture is not None:
+            relative_path_offset += 1
+            root = self.root_directory / relative_paths[relative_path_offset]
+
+            yield root / f"{self.name}{file_extension}"
 
 
 # ----------------------------------------------------------------------
