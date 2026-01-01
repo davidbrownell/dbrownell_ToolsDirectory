@@ -5,7 +5,7 @@ import sys
 from dataclasses import dataclass
 from enum import auto, Enum
 from functools import cached_property
-from typing import TYPE_CHECKING
+from typing import Literal, TYPE_CHECKING
 
 from dbrownell_Common.InflectEx import inflect
 from semantic_version import Version as SemVer
@@ -49,14 +49,16 @@ class OperatingSystemType(Enum):
 
     # ----------------------------------------------------------------------
     @cached_property
-    def strings(self) -> set[str]:
+    def string_map(self) -> dict[str, OperatingSystemType | Literal["Generic"]]:
         """Return strings that represent operating systems."""
 
-        results: list[str] = [e.name for e in OperatingSystemType]
+        results: dict[str, OperatingSystemType | Literal["Generic"]] = {
+            e.name: e for e in OperatingSystemType
+        }
 
-        results.append("Generic")
+        results["Generic"] = "Generic"
 
-        return set(results)
+        return results
 
 
 # ----------------------------------------------------------------------
@@ -88,14 +90,14 @@ class ArchitectureType(Enum):
 
     # ----------------------------------------------------------------------
     @cached_property
-    def strings(self) -> set[str]:
+    def string_map(self) -> dict[str, ArchitectureType | Literal["Generic"]]:
         """Return strings that represent architectures."""
 
-        results: list[str] = [e.name for e in ArchitectureType]
+        results: dict[str, ArchitectureType | Literal["Generic"]] = {e.name: e for e in ArchitectureType}
 
-        results.append("Generic")
+        results["Generic"] = "Generic"
 
-        return set(results)
+        return results
 
 
 # ----------------------------------------------------------------------
@@ -105,6 +107,15 @@ class ToolInfo:
 
     name: str
     """Name of the tool."""
+
+    version: SemVer | None
+    """Version of the tool, if a versioned directory was encountered."""
+
+    operating_system: OperatingSystemType | Literal["Generic"] | None
+    """Operating system of the tool, if an OS-specific directory was encountered."""
+
+    architecture: ArchitectureType | Literal["Generic"] | None
+    """Architecture of the tool, if an architecture-specific directory was encountered."""
 
     root_directory: Path
     """Root of the tool; all versioned directories are subdirectories of this."""
@@ -157,9 +168,14 @@ def GetToolInfos(
                 tool_dm.WriteVerbose(f"'{tool_name}' has not been explicitly included.\n")
                 continue
 
-            tool_directory = _ApplyVersionDir(tool_dm, tool_name, tool_directory, tool_versions)  # noqa: PLW2901
+            tool_directory, semantic_version = _ApplyVersionDir(  #  noqa: PLW2901
+                tool_dm,
+                tool_name,
+                tool_directory,
+                tool_versions,
+            )
 
-            tool_directory = _ApplyOperatingSystemDir(  # noqa: PLW2901
+            tool_directory, operating_system_type = _ApplyOperatingSystemDir(  # noqa: PLW2901
                 tool_dm,
                 tool_name,
                 tool_directory,
@@ -167,7 +183,7 @@ def GetToolInfos(
                 no_generic_operating_systems=no_generic_operating_systems,
             )
 
-            tool_directory = _ApplyArchitectureDir(  # noqa: PLW2901
+            tool_directory, architecture_type = _ApplyArchitectureDir(  # noqa: PLW2901
                 tool_dm,
                 tool_name,
                 tool_directory,
@@ -180,7 +196,17 @@ def GetToolInfos(
             if tool_dm.result != 0:
                 continue
 
-            results.append(ToolInfo(tool_name, root_directory, tool_directory, bin_tool_directory))
+            results.append(
+                ToolInfo(
+                    tool_name,
+                    semantic_version,
+                    operating_system_type,
+                    architecture_type,
+                    root_directory,
+                    tool_directory,
+                    bin_tool_directory,
+                ),
+            )
 
     return results
 
@@ -193,7 +219,7 @@ def _ApplyVersionDir(
     tool_name: str,
     tool_directory: Path,
     tool_versions: dict[str, SemVer],
-) -> Path:
+) -> tuple[Path, SemVer | None]:
     working_version_dirs: list[tuple[SemVer, Path]] = []
 
     for potential_dir in tool_directory.iterdir():
@@ -206,27 +232,25 @@ def _ApplyVersionDir(
         except ValueError:
             continue
 
-    if not working_version_dirs:
-        return tool_directory
+    if working_version_dirs:
+        working_version_dirs.sort(key=lambda x: x[0], reverse=True)
 
-    working_version_dirs.sort(key=lambda x: x[0], reverse=True)
+        working_versions = dict(working_version_dirs)
 
-    working_versions = dict(working_version_dirs)
+        desired_version = tool_versions.get(
+            tool_name,
+            next(iter(working_versions)),
+        )
 
-    desired_version = tool_versions.get(
-        tool_name,
-        next(iter(working_versions)),
-    )
+        updated_working_dir = working_versions.get(desired_version)
+        if updated_working_dir is not None:
+            return updated_working_dir, desired_version
 
-    updated_working_dir = working_versions.get(desired_version)
-    if updated_working_dir is not None:
-        return updated_working_dir
+        dm.WriteError(
+            f"No directory found for version '{desired_version}' for the tool '{tool_name}' in '{tool_directory}'.\n"
+        )
 
-    dm.WriteError(
-        f"No directory found for version '{desired_version}' for the tool '{tool_name}' in '{tool_directory}'.\n"
-    )
-
-    return tool_directory
+    return tool_directory, None
 
 
 # ----------------------------------------------------------------------
@@ -237,29 +261,29 @@ def _ApplyOperatingSystemDir(
     operating_system: OperatingSystemType,
     *,
     no_generic_operating_systems: bool,
-) -> Path:
-    operating_system_dirs: dict[str, Path] = {}
+) -> tuple[Path, OperatingSystemType | Literal["Generic"] | None]:
+    operating_system_dirs: dict[str, tuple[Path, OperatingSystemType | Literal["Generic"]]] = {}
 
     for potential_dir in tool_directory.iterdir():
         if not potential_dir.is_dir():
             continue
 
-        if potential_dir.name in operating_system.strings:
-            operating_system_dirs[potential_dir.name] = potential_dir
+        potential_mapped_info = operating_system.string_map.get(potential_dir.name)
+        if potential_mapped_info is not None:
+            operating_system_dirs[potential_dir.name] = (potential_dir, potential_mapped_info)
 
-    if not operating_system_dirs:
-        return tool_directory
+    if operating_system_dirs:
+        if operating_system.name in operating_system_dirs:
+            return operating_system_dirs[operating_system.name]
 
-    if operating_system.name in operating_system_dirs:
-        return operating_system_dirs[operating_system.name]
+        if not no_generic_operating_systems and "Generic" in operating_system_dirs:
+            return operating_system_dirs["Generic"]
 
-    if not no_generic_operating_systems and "Generic" in operating_system_dirs:
-        return operating_system_dirs["Generic"]
+        dm.WriteError(
+            f"No directory found for '{operating_system.name}' for the tool '{tool_name}' in '{tool_directory}'.\n"
+        )
 
-    dm.WriteError(
-        f"No directory found for '{operating_system.name}' for the tool '{tool_name}' in '{tool_directory}'.\n"
-    )
-    return tool_directory
+    return tool_directory, None
 
 
 # ----------------------------------------------------------------------
@@ -270,29 +294,29 @@ def _ApplyArchitectureDir(
     architecture: ArchitectureType,
     *,
     no_generic_architectures: bool,
-) -> Path:
-    architecture_dirs: dict[str, Path] = {}
+) -> tuple[Path, ArchitectureType | Literal["Generic"] | None]:
+    architecture_dirs: dict[str, tuple[Path, ArchitectureType | Literal["Generic"]]] = {}
 
     for potential_dir in tool_directory.iterdir():
         if not potential_dir.is_dir():
             continue
 
-        if potential_dir.name in architecture.strings:
-            architecture_dirs[potential_dir.name] = potential_dir
+        potential_mapped_info = architecture.string_map.get(potential_dir.name)
+        if potential_mapped_info is not None:
+            architecture_dirs[potential_dir.name] = (potential_dir, potential_mapped_info)
 
-    if not architecture_dirs:
-        return tool_directory
+    if architecture_dirs:
+        if architecture.name in architecture_dirs:
+            return architecture_dirs[architecture.name]
 
-    if architecture.name in architecture_dirs:
-        return architecture_dirs[architecture.name]
+        if not no_generic_architectures and "Generic" in architecture_dirs:
+            return architecture_dirs["Generic"]
 
-    if not no_generic_architectures and "Generic" in architecture_dirs:
-        return architecture_dirs["Generic"]
+        dm.WriteError(
+            f"No directory found for '{architecture.name}' for the tool '{tool_name}' in '{tool_directory}'.\n"
+        )
 
-    dm.WriteError(
-        f"No directory found for '{architecture.name}' for the tool '{tool_name}' in '{tool_directory}'.\n"
-    )
-    return tool_directory
+    return tool_directory, None
 
 
 # ----------------------------------------------------------------------

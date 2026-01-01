@@ -6,6 +6,8 @@ from typing import cast
 
 from dbrownell_Common.Streams.DoneManager import DoneManager
 from dbrownell_Common.TestHelpers.StreamTestHelpers import GenerateDoneManagerAndContent
+from semantic_version import Version as SemVer
+
 from dbrownell_ToolsDirectory import ToolInfo
 
 
@@ -25,17 +27,15 @@ class TestOperatingSystemType:
         assert ToolInfo.OperatingSystemType.Calculate() == expected
 
     # ----------------------------------------------------------------------
-    def test_Strings(self) -> None:
-        results = ToolInfo.OperatingSystemType.Linux.strings
+    def test_StringMap(self) -> None:
+        results = ToolInfo.OperatingSystemType.Linux.string_map
 
-        assert results == set(
-            [
-                "Windows",
-                "MacOS",
-                "Linux",
-                "Generic",
-            ],
-        )
+        assert results == {
+            "Windows": ToolInfo.OperatingSystemType.Windows,
+            "MacOS": ToolInfo.OperatingSystemType.MacOS,
+            "Linux": ToolInfo.OperatingSystemType.Linux,
+            "Generic": "Generic",
+        }
 
 
 # ----------------------------------------------------------------------
@@ -52,43 +52,44 @@ class TestArchitectureType:
         assert ToolInfo.ArchitectureType.Calculate() == expected
 
     # ----------------------------------------------------------------------
-    def test_Strings(self) -> None:
-        results = ToolInfo.ArchitectureType.x64.strings
+    def test_StringMap(self) -> None:
+        results = ToolInfo.ArchitectureType.x64.string_map
 
-        assert results == set(
-            [
-                "x64",
-                "x86",
-                "ARM64",
-                "ARM",
-                "Generic",
-            ],
-        )
+        assert results == {
+            "x64": ToolInfo.ArchitectureType.x64,
+            "x86": ToolInfo.ArchitectureType.x86,
+            "ARM64": ToolInfo.ArchitectureType.ARM64,
+            "ARM": ToolInfo.ArchitectureType.ARM,
+            "Generic": "Generic",
+        }
 
 
 # ----------------------------------------------------------------------
 class TestGetToolInfos:
     # ----------------------------------------------------------------------
     def test_Standard(self, fs):
-        operating_system = ToolInfo.OperatingSystemType.Calculate().name
-        architecture = ToolInfo.ArchitectureType.Calculate().name
+        operating_system = ToolInfo.OperatingSystemType.Calculate()
+        operating_system_str = operating_system.name
+
+        architecture = ToolInfo.ArchitectureType.Calculate()
+        architecture_str = architecture.name
 
         fs.create_file("/Tools/Tool1/file.txt")
         fs.create_file("/Tools/Tool2/bin/file.txt")
         fs.create_file("/Tools/Tool3/1.0.0/file.txt")
         fs.create_file("/Tools/Tool4/v2.3.4/file.txt")
-        fs.create_file(f"/Tools/Tool5/1.0.0/{operating_system}/file.txt")
-        fs.create_file(f"/Tools/Tool6/1.0.0/{operating_system}/bin/file.txt")
-        fs.create_file(f"/Tools/Tool7/1.0.0/{operating_system}/{architecture}/file.txt")
-        fs.create_file(f"/Tools/Tool8/1.0.0/{operating_system}/{architecture}/bin/file.txt")
+        fs.create_file(f"/Tools/Tool5/1.0.0/{operating_system_str}/file.txt")
+        fs.create_file(f"/Tools/Tool6/1.0.0/{operating_system_str}/bin/file.txt")
+        fs.create_file(f"/Tools/Tool7/1.0.0/{operating_system_str}/{architecture_str}/file.txt")
+        fs.create_file(f"/Tools/Tool8/1.0.0/{operating_system_str}/{architecture_str}/bin/file.txt")
         fs.create_file("/Tools/Tool9/1.0.0/Generic/file.txt")
         fs.create_file("/Tools/Tool10/1.0.0/Generic/bin/file.txt")
-        fs.create_file(f"/Tools/Tool11/1.0.0/Generic/{architecture}/file.txt")
-        fs.create_file(f"/Tools/Tool12/1.0.0/Generic/{architecture}/bin/file.txt")
-        fs.create_file(f"/Tools/Tool13/{operating_system}/file.txt")
-        fs.create_file(f"/Tools/Tool14/{operating_system}/bin/file.txt")
-        fs.create_file(f"/Tools/Tool15/{operating_system}/{architecture}/file.txt")
-        fs.create_file(f"/Tools/Tool16/{operating_system}/{architecture}/bin/file.txt")
+        fs.create_file(f"/Tools/Tool11/1.0.0/Generic/{architecture_str}/file.txt")
+        fs.create_file(f"/Tools/Tool12/1.0.0/Generic/{architecture_str}/bin/file.txt")
+        fs.create_file(f"/Tools/Tool13/{operating_system_str}/file.txt")
+        fs.create_file(f"/Tools/Tool14/{operating_system_str}/bin/file.txt")
+        fs.create_file(f"/Tools/Tool15/{operating_system_str}/{architecture_str}/file.txt")
+        fs.create_file(f"/Tools/Tool16/{operating_system_str}/{architecture_str}/bin/file.txt")
         fs.create_file("/Tools/not_a_tool")
 
         dm_and_sink = iter(GenerateDoneManagerAndContent())
@@ -104,85 +105,149 @@ class TestGetToolInfos:
         )
 
         assert results == [
-            ToolInfo.ToolInfo("Tool1", Path("/Tools/Tool1"), Path("/Tools/Tool1"), Path("/Tools/Tool1")),
-            ToolInfo.ToolInfo("Tool2", Path("/Tools/Tool2"), Path("/Tools/Tool2"), Path("/Tools/Tool2/bin")),
             ToolInfo.ToolInfo(
-                "Tool3", Path("/Tools/Tool3"), Path("/Tools/Tool3/1.0.0"), Path("/Tools/Tool3/1.0.0")
+                "Tool1",
+                None,
+                None,
+                None,
+                Path("/Tools/Tool1"),
+                Path("/Tools/Tool1"),
+                Path("/Tools/Tool1"),
             ),
             ToolInfo.ToolInfo(
-                "Tool4", Path("/Tools/Tool4"), Path("/Tools/Tool4/v2.3.4"), Path("/Tools/Tool4/v2.3.4")
+                "Tool2",
+                None,
+                None,
+                None,
+                Path("/Tools/Tool2"),
+                Path("/Tools/Tool2"),
+                Path("/Tools/Tool2/bin"),
+            ),
+            ToolInfo.ToolInfo(
+                "Tool3",
+                SemVer("1.0.0"),
+                None,
+                None,
+                Path("/Tools/Tool3"),
+                Path("/Tools/Tool3/1.0.0"),
+                Path("/Tools/Tool3/1.0.0"),
+            ),
+            ToolInfo.ToolInfo(
+                "Tool4",
+                SemVer("2.3.4"),
+                None,
+                None,
+                Path("/Tools/Tool4"),
+                Path("/Tools/Tool4/v2.3.4"),
+                Path("/Tools/Tool4/v2.3.4"),
             ),
             ToolInfo.ToolInfo(
                 "Tool5",
+                SemVer("1.0.0"),
+                operating_system,
+                None,
                 Path("/Tools/Tool5"),
-                Path(f"/Tools/Tool5/1.0.0/{operating_system}"),
-                Path(f"/Tools/Tool5/1.0.0/{operating_system}"),
+                Path(f"/Tools/Tool5/1.0.0/{operating_system_str}"),
+                Path(f"/Tools/Tool5/1.0.0/{operating_system_str}"),
             ),
             ToolInfo.ToolInfo(
                 "Tool6",
+                SemVer("1.0.0"),
+                operating_system,
+                None,
                 Path("/Tools/Tool6"),
-                Path(f"/Tools/Tool6/1.0.0/{operating_system}"),
-                Path(f"/Tools/Tool6/1.0.0/{operating_system}/bin"),
+                Path(f"/Tools/Tool6/1.0.0/{operating_system_str}"),
+                Path(f"/Tools/Tool6/1.0.0/{operating_system_str}/bin"),
             ),
             ToolInfo.ToolInfo(
                 "Tool7",
+                SemVer("1.0.0"),
+                operating_system,
+                architecture,
                 Path("/Tools/Tool7"),
-                Path(f"/Tools/Tool7/1.0.0/{operating_system}/{architecture}"),
-                Path(f"/Tools/Tool7/1.0.0/{operating_system}/{architecture}"),
+                Path(f"/Tools/Tool7/1.0.0/{operating_system_str}/{architecture_str}"),
+                Path(f"/Tools/Tool7/1.0.0/{operating_system_str}/{architecture_str}"),
             ),
             ToolInfo.ToolInfo(
                 "Tool8",
+                SemVer("1.0.0"),
+                operating_system,
+                architecture,
                 Path("/Tools/Tool8"),
-                Path(f"/Tools/Tool8/1.0.0/{operating_system}/{architecture}"),
-                Path(f"/Tools/Tool8/1.0.0/{operating_system}/{architecture}/bin"),
+                Path(f"/Tools/Tool8/1.0.0/{operating_system_str}/{architecture_str}"),
+                Path(f"/Tools/Tool8/1.0.0/{operating_system_str}/{architecture_str}/bin"),
             ),
             ToolInfo.ToolInfo(
                 "Tool9",
+                SemVer("1.0.0"),
+                "Generic",
+                None,
                 Path("/Tools/Tool9"),
                 Path("/Tools/Tool9/1.0.0/Generic"),
                 Path("/Tools/Tool9/1.0.0/Generic"),
             ),
             ToolInfo.ToolInfo(
                 "Tool10",
+                SemVer("1.0.0"),
+                "Generic",
+                None,
                 Path("/Tools/Tool10"),
                 Path("/Tools/Tool10/1.0.0/Generic"),
                 Path("/Tools/Tool10/1.0.0/Generic/bin"),
             ),
             ToolInfo.ToolInfo(
                 "Tool11",
+                SemVer("1.0.0"),
+                "Generic",
+                architecture,
                 Path("/Tools/Tool11"),
-                Path(f"/Tools/Tool11/1.0.0/Generic/{architecture}"),
-                Path(f"/Tools/Tool11/1.0.0/Generic/{architecture}"),
+                Path(f"/Tools/Tool11/1.0.0/Generic/{architecture_str}"),
+                Path(f"/Tools/Tool11/1.0.0/Generic/{architecture_str}"),
             ),
             ToolInfo.ToolInfo(
                 "Tool12",
+                SemVer("1.0.0"),
+                "Generic",
+                architecture,
                 Path("/Tools/Tool12"),
-                Path(f"/Tools/Tool12/1.0.0/Generic/{architecture}"),
-                Path(f"/Tools/Tool12/1.0.0/Generic/{architecture}/bin"),
+                Path(f"/Tools/Tool12/1.0.0/Generic/{architecture_str}"),
+                Path(f"/Tools/Tool12/1.0.0/Generic/{architecture_str}/bin"),
             ),
             ToolInfo.ToolInfo(
                 "Tool13",
+                None,
+                operating_system,
+                None,
                 Path("/Tools/Tool13"),
-                Path(f"/Tools/Tool13/{operating_system}"),
-                Path(f"/Tools/Tool13/{operating_system}"),
+                Path(f"/Tools/Tool13/{operating_system_str}"),
+                Path(f"/Tools/Tool13/{operating_system_str}"),
             ),
             ToolInfo.ToolInfo(
                 "Tool14",
+                None,
+                operating_system,
+                None,
                 Path("/Tools/Tool14"),
-                Path(f"/Tools/Tool14/{operating_system}"),
-                Path(f"/Tools/Tool14/{operating_system}/bin"),
+                Path(f"/Tools/Tool14/{operating_system_str}"),
+                Path(f"/Tools/Tool14/{operating_system_str}/bin"),
             ),
             ToolInfo.ToolInfo(
                 "Tool15",
+                None,
+                operating_system,
+                architecture,
                 Path("/Tools/Tool15"),
-                Path(f"/Tools/Tool15/{operating_system}/{architecture}"),
-                Path(f"/Tools/Tool15/{operating_system}/{architecture}"),
+                Path(f"/Tools/Tool15/{operating_system_str}/{architecture_str}"),
+                Path(f"/Tools/Tool15/{operating_system_str}/{architecture_str}"),
             ),
             ToolInfo.ToolInfo(
                 "Tool16",
+                None,
+                operating_system,
+                architecture,
                 Path("/Tools/Tool16"),
-                Path(f"/Tools/Tool16/{operating_system}/{architecture}"),
-                Path(f"/Tools/Tool16/{operating_system}/{architecture}/bin"),
+                Path(f"/Tools/Tool16/{operating_system_str}/{architecture_str}"),
+                Path(f"/Tools/Tool16/{operating_system_str}/{architecture_str}/bin"),
             ),
         ]
 
@@ -205,8 +270,24 @@ class TestGetToolInfos:
         )
 
         assert results == [
-            ToolInfo.ToolInfo("Tool1", Path("/Tools/Tool1"), Path("/Tools/Tool1"), Path("/Tools/Tool1")),
-            ToolInfo.ToolInfo("Tool3", Path("/Tools/Tool3"), Path("/Tools/Tool3"), Path("/Tools/Tool3")),
+            ToolInfo.ToolInfo(
+                "Tool1",
+                None,
+                None,
+                None,
+                Path("/Tools/Tool1"),
+                Path("/Tools/Tool1"),
+                Path("/Tools/Tool1"),
+            ),
+            ToolInfo.ToolInfo(
+                "Tool3",
+                None,
+                None,
+                None,
+                Path("/Tools/Tool3"),
+                Path("/Tools/Tool3"),
+                Path("/Tools/Tool3"),
+            ),
         ]
 
     # ----------------------------------------------------------------------
@@ -228,8 +309,24 @@ class TestGetToolInfos:
         )
 
         assert results == [
-            ToolInfo.ToolInfo("Tool1", Path("/Tools/Tool1"), Path("/Tools/Tool1"), Path("/Tools/Tool1")),
-            ToolInfo.ToolInfo("Tool3", Path("/Tools/Tool3"), Path("/Tools/Tool3"), Path("/Tools/Tool3")),
+            ToolInfo.ToolInfo(
+                "Tool1",
+                None,
+                None,
+                None,
+                Path("/Tools/Tool1"),
+                Path("/Tools/Tool1"),
+                Path("/Tools/Tool1"),
+            ),
+            ToolInfo.ToolInfo(
+                "Tool3",
+                None,
+                None,
+                None,
+                Path("/Tools/Tool3"),
+                Path("/Tools/Tool3"),
+                Path("/Tools/Tool3"),
+            ),
         ]
 
     # ----------------------------------------------------------------------
@@ -252,7 +349,13 @@ class TestGetToolInfos:
 
         assert results == [
             ToolInfo.ToolInfo(
-                "Tool1", Path("/Tools/Tool1"), Path("/Tools/Tool1/2.0.0"), Path("/Tools/Tool1/2.0.0")
+                "Tool1",
+                SemVer("2.0.0"),
+                None,
+                None,
+                Path("/Tools/Tool1"),
+                Path("/Tools/Tool1/2.0.0"),
+                Path("/Tools/Tool1/2.0.0"),
             ),
         ]
 
@@ -276,7 +379,13 @@ class TestGetToolInfos:
 
         assert results == [
             ToolInfo.ToolInfo(
-                "Tool1", Path("/Tools/Tool1"), Path("/Tools/Tool1/1.5.0"), Path("/Tools/Tool1/1.5.0")
+                "Tool1",
+                SemVer("1.5.0"),
+                None,
+                None,
+                Path("/Tools/Tool1"),
+                Path("/Tools/Tool1/1.5.0"),
+                Path("/Tools/Tool1/1.5.0"),
             ),
         ]
 
@@ -331,7 +440,13 @@ class TestGetToolInfos:
 
         assert results == [
             ToolInfo.ToolInfo(
-                "Tool1", Path("/Tools/Tool1"), Path("/Tools/Tool1/Generic"), Path("/Tools/Tool1/Generic")
+                "Tool1",
+                None,
+                "Generic",
+                None,
+                Path("/Tools/Tool1"),
+                Path("/Tools/Tool1/Generic"),
+                Path("/Tools/Tool1/Generic"),
             ),
         ]
 
@@ -395,7 +510,13 @@ class TestGetToolInfos:
 
         assert results == [
             ToolInfo.ToolInfo(
-                "Tool1", Path("/Tools/Tool1"), Path("/Tools/Tool1/Generic"), Path("/Tools/Tool1/Generic")
+                "Tool1",
+                None,
+                "Generic",
+                None,
+                Path("/Tools/Tool1"),
+                Path("/Tools/Tool1/Generic"),
+                Path("/Tools/Tool1/Generic"),
             ),
         ]
 
