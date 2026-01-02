@@ -132,6 +132,11 @@ class ToolInfo:
         """Generate potential filenames for environment files, ordered from the least- to most-specific."""
 
         # ----------------------------------------------------------------------
+        def ApplyStandardSuffixes(potential_suffixes: list[str]) -> None:
+            assert not potential_suffixes
+            potential_suffixes.append("")
+
+        # ----------------------------------------------------------------------
         def ApplyVersionSuffixes(potential_suffixes: list[str]) -> None:
             if self.version is None:
                 return
@@ -151,7 +156,7 @@ class ToolInfo:
 
             potential_suffixes.append(f"-{suffix}")
             potential_suffixes += [
-                f"{potential_suffix}-{suffix}" for potential_suffix in potential_suffixes[:-1]
+                f"{potential_suffix}-{suffix}" for potential_suffix in potential_suffixes[1:-1]
             ]
 
         # ----------------------------------------------------------------------
@@ -167,7 +172,7 @@ class ToolInfo:
 
             potential_suffixes.append(f"-{suffix}")
             potential_suffixes += [
-                f"{potential_suffix}-{suffix}" for potential_suffix in potential_suffixes[:-1]
+                f"{potential_suffix}-{suffix}" for potential_suffix in potential_suffixes[1:-1]
             ]
 
         # ----------------------------------------------------------------------
@@ -185,50 +190,51 @@ class ToolInfo:
         # 3) Operating System
         # 4) Architecture
         assert len(relative_paths) <= 4, relative_paths  # noqa: PLR2004
-        relative_path_offset = 0
 
         # Root
-        root = self.root_directory / relative_paths[relative_path_offset]
-
-        yield root / f"{self.name}{file_extension}"
-
         potential_suffixes: list[str] = []
 
+        ApplyStandardSuffixes(potential_suffixes)
         ApplyVersionSuffixes(potential_suffixes)
         ApplyOperatingSystemSuffixes(potential_suffixes)
         ApplyArchitectureSuffixes(potential_suffixes)
+
+        relative_path_offset = 0
+        root = self.root_directory / relative_paths[relative_path_offset]
 
         yield from [root / f"{self.name}{suffix}{file_extension}" for suffix in potential_suffixes]
 
         # Version
         if self.version is not None:
-            relative_path_offset += 1
-            root = self.root_directory / relative_paths[relative_path_offset]
-
-            yield root / f"{self.name}{file_extension}"
-
             potential_suffixes = []
 
+            ApplyStandardSuffixes(potential_suffixes)
             ApplyOperatingSystemSuffixes(potential_suffixes)
             ApplyArchitectureSuffixes(potential_suffixes)
+
+            relative_path_offset += 1
+            root = self.root_directory / relative_paths[relative_path_offset]
 
             yield from [root / f"{self.name}{suffix}{file_extension}" for suffix in potential_suffixes]
 
         # Operating System
         if self.operating_system is not None:
-            relative_path_offset += 1
-            root = self.root_directory / relative_paths[relative_path_offset]
-
-            yield root / f"{self.name}{file_extension}"
-
             potential_suffixes = []
 
+            ApplyStandardSuffixes(potential_suffixes)
             ApplyArchitectureSuffixes(potential_suffixes)
+
+            relative_path_offset += 1
+            root = self.root_directory / relative_paths[relative_path_offset]
 
             yield from [root / f"{self.name}{suffix}{file_extension}" for suffix in potential_suffixes]
 
         # Architecture
         if self.architecture is not None:
+            potential_suffixes = []
+
+            ApplyStandardSuffixes(potential_suffixes)
+
             relative_path_offset += 1
             root = self.root_directory / relative_paths[relative_path_offset]
 
