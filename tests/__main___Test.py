@@ -13,8 +13,8 @@ from _pytest.monkeypatch import MonkeyPatch
 from semantic_version import Version as SemVer
 from typer.testing import CliRunner
 
+from dbrownell_ToolsDirectory import __main__
 from dbrownell_ToolsDirectory import ToolInfo
-from dbrownell_ToolsDirectory.ExecuteImpl import __main__
 
 
 # ----------------------------------------------------------------------
