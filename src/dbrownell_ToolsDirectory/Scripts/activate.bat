@@ -1,9 +1,9 @@
 @echo off
 
-REM Create a temporary file that contains the output produced by ExecuteImpl.
+REM Create a temporary file that contains the output produced by dbrownell_ToolsDirectory.
 call :CreateTempScriptName
 
-uv run python -m dbrownell_ToolsDirectory.ExecuteImpl "%_DBROWNELL_TOOLS_DIRECTORY_TEMP_SCRIPT_NAME%" batch %*
+uv run python -m dbrownell_ToolsDirectory "%_DBROWNELL_TOOLS_DIRECTORY_TEMP_SCRIPT_NAME%" batch %*
 set _DBROWNELL_TOOLS_SCRIPT_GENERATION_RETURN_CODE=%ERRORLEVEL%
 
 REM Invoke the script
@@ -17,7 +17,7 @@ if "%_DBROWNELL_TOOLS_SCRIPT_GENERATION_RETURN_CODE%" NEQ "0" (
     @echo.
     @echo [31m[1mERROR:[0m Errors were encountered and the tool directories have not been activated.
     @echo [31m[1mERROR:[0m
-    @echo [31m[1mERROR:[0m     [dbrownell_ToolsDirectory.ExecuteImpl failed]
+    @echo [31m[1mERROR:[0m     [dbrownell_ToolsDirectory failed]
     @echo [31m[1mERROR:[0m
 
     goto ErrorExit
