@@ -265,7 +265,6 @@ def GetToolInfos(
     with dm.Nested(
         f"Parsing tools in '{tools_directory}'...",
         lambda: "{} found".format(inflect.no("tool", len(results))),
-        suffix="\n",
     ) as tool_dm:
         for tool_directory in tools_directory.iterdir():
             if not tool_directory.is_dir():
