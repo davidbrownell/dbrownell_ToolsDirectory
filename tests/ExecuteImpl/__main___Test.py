@@ -1,3 +1,4 @@
+import os
 import re
 import textwrap
 
@@ -123,9 +124,9 @@ def test_Bash(fs, monkeypatch):
         """\
         set +x
 
-        [[ ":${PATH}:" != *":<Mock name='mock.binary_directory' ID_1>:"* ]] && export PATH="${PATH}:<Mock name='mock.binary_directory' ID_1>"
+        [[ ":${{PATH}}:" != *":does{sep}not{sep}exist:"* ]] && export PATH="${{PATH}}:does{sep}not{sep}exist"
         """,
-    )
+    ).format(sep=os.path.sep)
 
 
 # ----------------------------------------------------------------------
@@ -144,16 +145,16 @@ def test_Batch(fs, monkeypatch):
         """\
         @echo off
 
-        REM <Mock name='mock.binary_directory' ID_1>
-        echo ";%PATH%;" | findstr /C:";<Mock name='mock.binary_directory' ID_1>;" >nul
+        REM does{sep}not{sep}exist
+        echo ";%PATH%;" | findstr /C:";does{sep}not{sep}exist;" >nul
         if %ERRORLEVEL% == 0 goto GUID_1
 
-        SET PATH=%PATH%;<Mock name='mock.binary_directory' ID_1>
+        SET PATH=%PATH%;does{sep}not{sep}exist
 
         :GUID_1
 
         """,
-    )
+    ).format(sep=os.path.sep)
 
 
 # ----------------------------------------------------------------------
@@ -187,7 +188,17 @@ def _Execute(
     fs.create_file(tool_directory / "dummy.txt")
 
     if tool_infos is None:
-        tool_infos = [Mock()]
+        tool_infos = [
+            ToolInfo.ToolInfo(
+                "TheTool",
+                None,
+                None,
+                None,
+                tool_directory,
+                tool_directory,
+                tool_directory,
+            ),
+        ]
 
     mock = Mock(return_value=tool_infos)
 

@@ -200,7 +200,7 @@ def EntryPoint(  # noqa: D103
                 )
 
         # Create the shell statements
-        commands: list[Command] = CreateShellCommands(tool_infos)
+        commands: list[Command] = CreateShellCommands(dm, tool_infos)
 
         # Write the output
         if output_type == OutputType.Bash:
