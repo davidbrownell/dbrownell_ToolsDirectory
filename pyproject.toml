@@ -29,6 +29,9 @@ classifiers = [
 [project.license]
 text = "MIT"
 
+[project.scripts]
+dbrownell_ToolsDirectory = "dbrownell_ToolsDirectory:__main__.app"
+
 [project.urls]
 Homepage = "https://github.com/davidbrownell/dbrownell_ToolsDirectory"
 Documentation = "https://github.com/davidbrownell/dbrownell_ToolsDirectory"
