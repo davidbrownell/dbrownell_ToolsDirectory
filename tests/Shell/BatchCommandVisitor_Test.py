@@ -138,7 +138,7 @@ class TestSet:
             ),
         )
 
-        assert command == "SET MyVar=\n"
+        assert command == "set MyVar=\n"
 
     # ----------------------------------------------------------------------
     def test_SingleValue(self) -> None:
@@ -149,7 +149,7 @@ class TestSet:
             ),
         )
 
-        assert command == "SET MyVar=MyValue\n"
+        assert command == "set MyVar=MyValue\n"
 
     # ----------------------------------------------------------------------
     def test_MultipleValues(self) -> None:
@@ -160,7 +160,7 @@ class TestSet:
             ),
         )
 
-        assert command == "SET MyVar=Value1;Value2;Value3\n"
+        assert command == "set MyVar=Value1;Value2;Value3\n"
 
 
 # ----------------------------------------------------------------------
@@ -182,7 +182,7 @@ class TestAugment:
             echo ";%MyVar%;" | findstr /C:";Value1;" >nul
             if %ERRORLEVEL% == 0 goto skip_<UNIQUE_ID_1>
 
-            SET MyVar=%MyVar%;Value1
+            set MyVar=%MyVar%;Value1
 
             :skip_<UNIQUE_ID_1>
 
@@ -206,7 +206,7 @@ class TestAugment:
             echo ";%MyVar%;" | findstr /C:";ValueA;" >nul
             if %ERRORLEVEL% == 0 goto skip_<UNIQUE_ID_1>
 
-            SET MyVar=%MyVar%;ValueA
+            set MyVar=%MyVar%;ValueA
 
             :skip_<UNIQUE_ID_1>
 
@@ -214,7 +214,7 @@ class TestAugment:
             echo ";%MyVar%;" | findstr /C:";ValueB;" >nul
             if %ERRORLEVEL% == 0 goto skip_<UNIQUE_ID_2>
 
-            SET MyVar=%MyVar%;ValueB
+            set MyVar=%MyVar%;ValueB
 
             :skip_<UNIQUE_ID_2>
 
@@ -239,7 +239,7 @@ class TestAugment:
             echo ";%MyVar%;" | findstr /C:";ValueA;" >nul
             if %ERRORLEVEL% == 0 goto skip_<UNIQUE_ID_1>
 
-            SET MyVar=ValueA;%MyVar%
+            set MyVar=ValueA;%MyVar%
 
             :skip_<UNIQUE_ID_1>
 
@@ -247,7 +247,7 @@ class TestAugment:
             echo ";%MyVar%;" | findstr /C:";ValueB;" >nul
             if %ERRORLEVEL% == 0 goto skip_<UNIQUE_ID_2>
 
-            SET MyVar=ValueB;%MyVar%
+            set MyVar=ValueB;%MyVar%
 
             :skip_<UNIQUE_ID_2>
 
@@ -362,7 +362,7 @@ def test_EchoOff() -> None:
 def test_PersistError() -> None:
     command = BatchCommandVisitor().Accept(PersistError("MY_ERROR_VAR"))
 
-    assert command == "SET MY_ERROR_VAR=%ERRORLEVEL%\n"
+    assert command == "set MY_ERROR_VAR=%ERRORLEVEL%\n"
 
 
 # ----------------------------------------------------------------------

@@ -149,7 +149,7 @@ def test_Batch(fs, monkeypatch):
         echo ";%PATH%;" | findstr /C:";does{sep}not{sep}exist;" >nul
         if %ERRORLEVEL% == 0 goto GUID_1
 
-        SET PATH=%PATH%;does{sep}not{sep}exist
+        set PATH=%PATH%;does{sep}not{sep}exist
 
         :GUID_1
 
