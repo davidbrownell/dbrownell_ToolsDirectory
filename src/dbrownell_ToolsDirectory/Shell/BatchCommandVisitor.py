@@ -114,9 +114,9 @@ class BatchCommandVisitor(CommandVisitor):
         command: Set,
     ) -> str | None:
         if command.value_or_values is None:
-            return f"SET {command.name}=\n"
+            return f"set {command.name}=\n"
 
-        return f"SET {command.name}={';'.join(command.EnumValues())}\n"
+        return f"set {command.name}={';'.join(command.EnumValues())}\n"
 
     # ----------------------------------------------------------------------
     @override
@@ -135,7 +135,7 @@ class BatchCommandVisitor(CommandVisitor):
             echo ";%{name}%;" | findstr /C:";{{value}};" >nul
             if %ERRORLEVEL% == 0 goto skip_{{unique_id}}
 
-            SET {name}={add_statement_template}
+            set {name}={add_statement_template}
 
             :skip_{{unique_id}}
 
@@ -200,7 +200,7 @@ class BatchCommandVisitor(CommandVisitor):
         self,
         command: PersistError,
     ) -> str | None:
-        return f"SET {command.variable_name}=%ERRORLEVEL%\n"
+        return f"set {command.variable_name}=%ERRORLEVEL%\n"
 
     # ----------------------------------------------------------------------
     @override

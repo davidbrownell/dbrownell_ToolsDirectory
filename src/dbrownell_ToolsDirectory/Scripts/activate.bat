@@ -1,5 +1,7 @@
 @echo off
 
+pushd %~dp0
+
 REM Create a temporary file that contains the output produced by dbrownell_ToolsDirectory.
 call :CreateTempScriptName
 
@@ -57,6 +59,8 @@ goto Exit
 set _DBROWNELL_TOOLS_DIRECTORY_TEMP_SCRIPT_NAME=
 set _DBROWNELL_TOOLS_SCRIPT_GENERATION_RETURN_CODE=
 set _DBROWNELL_TOOLS_SCRIPT_EXECUTION_RETURN_CODE=
+
+popd
 
 exit /B %_DBROWNELL_TOOLS_DIRECTORY_RETURN_CODE%
 
