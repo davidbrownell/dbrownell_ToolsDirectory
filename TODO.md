@@ -2,7 +2,7 @@
 Development activities remaining for this repository.
 
 ## Prior to Initial Release
-- [ ] Add `bash` activation
+- [X] Add `bash` activation
 - [X] Process `.env` files
 - [ ] Update documentation
 
