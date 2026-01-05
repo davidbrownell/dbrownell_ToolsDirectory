@@ -223,6 +223,7 @@ jobs:
         run: |-
           uv run python -c "print('Validating __version__'); import dbrownell_ToolsDirectory as package; assert package.__version__ == '${{ env.PACKAGE_VERSION }}', package.__version__"
           uv run python -c "print('Validating activate.bat'); import dbrownell_ToolsDirectory as package; from pathlib import Path; assert (Path(package.__file__).parent / 'Scripts' / 'activate.bat').is_file()"
+          uv run python -c "print('Validating activate.sh'); import dbrownell_ToolsDirectory as package; from pathlib import Path; assert (Path(package.__file__).parent / 'Scripts' / 'activate.sh').is_file()"
 
   # ----------------------------------------------------------------------
   release:

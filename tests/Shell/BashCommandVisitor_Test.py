@@ -172,6 +172,7 @@ class TestAugment:
         assert command == textwrap.dedent(
             """\
             [[ ":${MY_VAR}:" != *":Value1:"* ]] && export MY_VAR="${MY_VAR}:Value1"
+            true
             """,
         )
 
@@ -182,8 +183,11 @@ class TestAugment:
         assert command == textwrap.dedent(
             """\
             [[ ":${MY_VAR}:" != *":Value1:"* ]] && export MY_VAR="${MY_VAR}:Value1"
+            true
             [[ ":${MY_VAR}:" != *":Value2:"* ]] && export MY_VAR="${MY_VAR}:Value2"
+            true
             [[ ":${MY_VAR}:" != *":Value3:"* ]] && export MY_VAR="${MY_VAR}:Value3"
+            true
             """,
         )
 
@@ -194,7 +198,9 @@ class TestAugment:
         assert command == textwrap.dedent(
             """\
             [[ ":${MY_VAR}:" != *":Value1:"* ]] && export MY_VAR="Value1:${MY_VAR}"
+            true
             [[ ":${MY_VAR}:" != *":Value2:"* ]] && export MY_VAR="Value2:${MY_VAR}"
+            true
             """,
         )
 
@@ -300,7 +306,13 @@ class TestExitOnError:
 def test_EchoOff() -> None:
     command = BashCommandVisitor().Accept(EchoOff())
 
-    assert command == "set +x\n\n"
+    assert command == textwrap.dedent(
+        """\
+        set +v
+        set +x
+
+        """,
+    )
 
 
 # ----------------------------------------------------------------------

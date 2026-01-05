@@ -147,6 +147,9 @@ def EntryPoint(  # noqa: D103
     with DoneManager.CreateCommandLine(
         flags=DoneManagerFlags.Create(verbose=verbose, debug=debug),
     ) as dm:
+        if output_filename.is_file():
+            output_filename.unlink()
+
         # Get the tools
         tool_infos = ToolInfo.GetToolInfos(
             dm,

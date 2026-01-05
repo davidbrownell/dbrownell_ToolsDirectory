@@ -122,9 +122,11 @@ def test_Bash(fs, monkeypatch):
 
     assert _ScrubBashOutput(content) == textwrap.dedent(
         """\
+        set +v
         set +x
 
         [[ ":${{PATH}}:" != *":does{sep}not{sep}exist:"* ]] && export PATH="${{PATH}}:does{sep}not{sep}exist"
+        true
         """,
     ).format(sep=os.path.sep)
 

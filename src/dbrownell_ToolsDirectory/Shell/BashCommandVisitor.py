@@ -120,13 +120,17 @@ class BashCommandVisitor(CommandVisitor):
 
         add_statement_template = f'export {command.name}="{add_statement_template}"'
 
-        statement_template = (
-            f'[[ ":${{{{{command.name}}}}}:" != *":{{value}}:"* ]] && ' + add_statement_template
+        # Apply true to ensure that "$?" isn't set to 1
+        statement_template = textwrap.dedent(
+            f"""\
+            [[ ":${{{{{command.name}}}}}:" != *":{{value}}:"* ]] && {add_statement_template}
+            true
+            """,
         )
 
         statements: list[str] = [statement_template.format(value=value) for value in command.EnumValues()]
 
-        return "\n".join(statements) + "\n"
+        return "".join(statements)
 
     # ----------------------------------------------------------------------
     @override
@@ -185,7 +189,13 @@ class BashCommandVisitor(CommandVisitor):
         self,
         command: EchoOff,  # noqa: ARG002
     ) -> str | None:
-        return "set +x\n\n"
+        return textwrap.dedent(
+            """\
+            set +v
+            set +x
+
+            """,
+        )
 
     # ----------------------------------------------------------------------
     @override
