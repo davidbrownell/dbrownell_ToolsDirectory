@@ -22,10 +22,60 @@
 - [License](#license)
 
 ## Overview
-TODO: Complete this section
+`dbrownell_ToolsDirectory` is a Python utility that automates the setup of tool environments by generating shell initialization scripts. It scans a directory structure containing organized tools and their versions, then creates either Bash or Batch scripts that add these tools to your system path and configure their environment variables. This tool is handy for managing multiple tool versions across different operating systems and architectures, allowing you to maintain a centralized directory of tools and automatically generate the necessary shell commands to make them available in your terminal environment.
 
 ### How to use `dbrownell_ToolsDirectory`
-TODO: Complete this section
+
+There are two ways to use `dbrownell_ToolsDirectory`: through convenience activation scripts or by using the CLI directly.
+
+1. Clone the repository locally:
+   ```bash
+   git clone https://github.com/davidbrownell/dbrownell_ToolsDirectory
+   ```
+
+2. Run the activation script for your shell:
+
+   **For Bash (Linux/macOS):**
+   ```bash
+   . <repository location>/src/dbrownell_ToolsDirectory/Scripts/activate.sh <tools directory>
+   ```
+
+   **For Batch (Windows):**
+   ```batch
+   <repository location>\src\dbrownell_ToolsDirectory\Scripts\activate.bat <tools directory>
+   ```
+
+3. All tools and environment variables from `<tools directory>` will be added to your environment.
+
+#### Example
+
+##### Hard Drive
+```
+/Tools/
+├── Tool1/
+│   └── Tool1.env
+├── Tool2/
+│   └── bin/
+└── Tool3/
+    ├── v1.2.3/
+    └── v4.5.6/
+```
+
+##### `Tool1.env`
+```env
+FOO=BAR
+FILENAME=./filename
+```
+
+##### After Activation
+```
+# Added by traversing the directory hierarchy
+PATH=${PATH}:/Tools/Tool1:/Tools/Tool2/bin:/Tools/Tool3/v4.5.6
+
+# Added through .env files within the directory hierarchy
+FOO=BAR
+FILENAME=/Tools/Tool1/filename
+```
 
 <!-- Content below this delimiter will be copied to the generated README.md file. DO NOT REMOVE THIS COMMENT, as it will cause regeneration to fail. -->
 
