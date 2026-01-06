@@ -15,6 +15,7 @@ from typer.core import TyperGroup
 from dbrownell_ToolsDirectory.CreateShellCommands import CreateShellCommands
 from dbrownell_ToolsDirectory.Shell.BashCommandVisitor import BashCommandVisitor
 from dbrownell_ToolsDirectory.Shell.BatchCommandVisitor import BatchCommandVisitor
+from dbrownell_ToolsDirectory.Shell.PowerShellCommandVisitor import PowerShellCommandVisitor
 from dbrownell_ToolsDirectory import ToolInfo
 
 if TYPE_CHECKING:
@@ -44,6 +45,7 @@ class OutputType(str, Enum):
 
     Bash = "bash"
     Batch = "batch"
+    PowerShell = "powershell"
 
 
 # ----------------------------------------------------------------------
@@ -210,6 +212,8 @@ def EntryPoint(  # noqa: D103
             command_visitor = BashCommandVisitor()
         elif output_type == OutputType.Batch:
             command_visitor = BatchCommandVisitor()
+        elif output_type == OutputType.PowerShell:
+            command_visitor = PowerShellCommandVisitor()
         else:
             assert False, output_type  # noqa: B011, PT015  # pragma: no cover
 
