@@ -53,25 +53,40 @@ def _CreateHelp() -> str:
 
         Tools should be organized by:
 
-        |- <tool_directory>
-           |- <tool_name>
-              |- \[<version>]
-                 |- \[<operating_system:{operating_systems}>]
-                    |- \[<architecture:{architectures}>]
-                       |- \[bin]
+        ├── <tool_directory>/
+            └── <tool_name>/
+                └── \[<version>/]
+                    └── \[<operating_system:{operating_systems}>/]
+                        └── \[<architecture:{architectures}>/]
+                            └── \[bin/]
 
         Each of these examples are supported:
 
-        |- Tools
-           |- Tool1
-           |- Tool2/bin
-           |- Tool3/1.0.0
-           |- Tool3/1.0.0/bin
-           |- Tool4/v1.0.0
-           |- Tool5/1.0.0/Linux
-           |- Tool6/1.0.0/Linux/bin
-           |- Tool7/1.0.0/Linux/x64
-           |- Tool8/1.0.0/Linux/x64/bin
+        Tools/
+        ├── Tool1/
+        ├── Tool2/
+        │   └── bin/
+        ├── Tool3/
+        │   └── 1.0.0/
+        │       └── bin/
+        ├── Tool4/
+        │   └── v1.0.0/
+        ├── Tool5/
+        │   └── 1.0.0/
+        │       └── Linux/
+        ├── Tool6/
+        │   └── 1.0.0/
+        │       └── Linux/
+        │           └── bin/
+        ├── Tool7/
+        │   └── 1.0.0/
+        │       └── Linux/
+        │           └── x64/
+        └── Tool8/
+            └── 1.0.0/
+                └── Linux/
+                    └── x64/
+                        └── bin/
 
         """,
     ).format(

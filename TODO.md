@@ -4,7 +4,7 @@ Development activities remaining for this repository.
 ## Prior to Initial Release
 - [X] Add `bash` activation
 - [X] Process `.env` files
-- [ ] Update documentation
+- [X] Update documentation
 
 ## Future Releases
 - [ ] Add `PowerShell` functionality
