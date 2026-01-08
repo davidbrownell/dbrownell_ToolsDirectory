@@ -61,7 +61,7 @@ function Execute() {
     echo "Creating dynamic commands..."
     echo "[0m"
 
-    uv run python -m dbrownell_ToolsDirectory "${temp_filename}" bash "$@"
+    uv run python -m dbrownell_ToolsDirectory activate "${temp_filename}" bash "$@"
     script_generation_return_code=$?
 
     # Invoke the script

@@ -59,7 +59,7 @@ Creating dynamic commands...
 
 "@
 
-    & uv run python -m dbrownell_ToolsDirectory $tempFileName powershell $args
+    & uv run python -m dbrownell_ToolsDirectory activate $tempFileName powershell $args
     $scriptGenerationReturnCode = $LASTEXITCODE
 
     # Invoke the script
