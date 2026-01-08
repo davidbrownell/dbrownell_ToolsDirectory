@@ -7,5 +7,5 @@ Development activities remaining for this repository.
 - [X] Update documentation
 
 ## Future Releases
-- [ ] Add `PowerShell` functionality
+- [X] Add `PowerShell` functionality
 - [ ] Process `.envrc` files like `direnv`
