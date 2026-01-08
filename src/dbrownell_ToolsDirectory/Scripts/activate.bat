@@ -21,7 +21,7 @@ call :CreateTempScriptName
 @echo Creating dynamic commands...
 @echo [0m
 
-uv run python -m dbrownell_ToolsDirectory "%_DBROWNELL_TOOLS_DIRECTORY_TEMP_SCRIPT_NAME%" batch %*
+uv run python -m dbrownell_ToolsDirectory activate "%_DBROWNELL_TOOLS_DIRECTORY_TEMP_SCRIPT_NAME%" batch %*
 set _DBROWNELL_TOOLS_SCRIPT_GENERATION_RETURN_CODE=%ERRORLEVEL%
 
 REM Invoke the script

@@ -13,6 +13,7 @@ from _pytest.monkeypatch import MonkeyPatch
 from semantic_version import Version as SemVer
 from typer.testing import CliRunner
 
+from dbrownell_ToolsDirectory import __version__
 from dbrownell_ToolsDirectory import __main__
 from dbrownell_ToolsDirectory import ToolInfo
 
@@ -160,6 +161,14 @@ def test_Batch(fs, monkeypatch):
 
 
 # ----------------------------------------------------------------------
+def test_Version():
+    result = CliRunner().invoke(__main__.app, ["version"])
+
+    assert result.exit_code == 0
+    assert result.output.strip() == __version__
+
+
+# ----------------------------------------------------------------------
 # ----------------------------------------------------------------------
 # ----------------------------------------------------------------------
 @dataclass(frozen=True)
@@ -213,7 +222,9 @@ def _Execute(
 
     monkeypatch.setattr("dbrownell_ToolsDirectory.ToolInfo.GetToolInfos", GetToolInfos)
 
-    result = CliRunner().invoke(__main__.app, [str(output_filename), output_type, str(tool_directory)] + args)
+    result = CliRunner().invoke(
+        __main__.app, ["activate", str(output_filename), output_type, str(tool_directory)] + args
+    )
     if expect_failure:
         assert result.exit_code != 0
         return result, None

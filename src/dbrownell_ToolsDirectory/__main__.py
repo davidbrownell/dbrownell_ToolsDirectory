@@ -1,5 +1,6 @@
 # noqa: D100
 import re
+import sys
 import textwrap
 
 from enum import Enum
@@ -12,6 +13,7 @@ from dbrownell_Common.Streams.DoneManager import DoneManager, Flags as DoneManag
 from semantic_version import Version as SemVer
 from typer.core import TyperGroup
 
+from dbrownell_ToolsDirectory import __version__
 from dbrownell_ToolsDirectory.CreateShellCommands import CreateShellCommands
 from dbrownell_ToolsDirectory.Shell.BashCommandVisitor import BashCommandVisitor
 from dbrownell_ToolsDirectory.Shell.BatchCommandVisitor import BatchCommandVisitor
@@ -98,8 +100,8 @@ def _CreateHelp() -> str:
 
 
 # ----------------------------------------------------------------------
-@app.command("EntryPoint", help=_CreateHelp(), no_args_is_help=True)
-def EntryPoint(  # noqa: D103
+@app.command("activate", help=_CreateHelp(), no_args_is_help=True)
+def Activate(  # noqa: D103
     output_filename: Annotated[
         Path,
         typer.Argument(dir_okay=False, resolve_path=True, path_type=Path, help="Path to the output file."),  # ty: ignore[no-matching-overload]
@@ -239,6 +241,13 @@ def EntryPoint(  # noqa: D103
 
                 if isinstance(result, str):
                     f.write(result)
+
+
+# ----------------------------------------------------------------------
+@app.command("version", no_args_is_help=False)
+def Version() -> None:
+    """Display the version of this tool."""
+    sys.stdout.write(f"{__version__}\n")
 
 
 # ----------------------------------------------------------------------
