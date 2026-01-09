@@ -4,7 +4,6 @@ import sys
 
 from dataclasses import dataclass
 from enum import auto, Enum
-from functools import cached_property
 from typing import Literal, TYPE_CHECKING
 
 from dbrownell_Common.InflectEx import inflect
@@ -49,13 +48,11 @@ class OperatingSystemType(Enum):
         raise Exception(msg)
 
     # ----------------------------------------------------------------------
-    @cached_property
-    def string_map(self) -> dict[str, OperatingSystemType | Literal["Generic"]]:
+    @classmethod
+    def StringMap(cls) -> dict[str, OperatingSystemType | Literal["Generic"]]:
         """Return strings that represent operating systems."""
 
-        results: dict[str, OperatingSystemType | Literal["Generic"]] = {
-            e.name: e for e in OperatingSystemType
-        }
+        results: dict[str, OperatingSystemType | Literal["Generic"]] = {e.name: e for e in cls}
 
         results["Generic"] = "Generic"
 
@@ -90,11 +87,11 @@ class ArchitectureType(Enum):
         return ArchitectureType.x64 if sys.maxsize > 2**32 else ArchitectureType.x86
 
     # ----------------------------------------------------------------------
-    @cached_property
-    def string_map(self) -> dict[str, ArchitectureType | Literal["Generic"]]:
+    @classmethod
+    def StringMap(cls) -> dict[str, ArchitectureType | Literal["Generic"]]:
         """Return strings that represent architectures."""
 
-        results: dict[str, ArchitectureType | Literal["Generic"]] = {e.name: e for e in ArchitectureType}
+        results: dict[str, ArchitectureType | Literal["Generic"]] = {e.name: e for e in cls}
 
         results["Generic"] = "Generic"
 
@@ -246,7 +243,7 @@ class ToolInfo:
 # |  Public Functions
 # |
 # ----------------------------------------------------------------------
-def GetToolInfos(
+def GetAllToolInfos(
     dm: DoneManager,
     tools_directory: Path,
     include_tools: set[str],
@@ -255,8 +252,8 @@ def GetToolInfos(
     operating_system: OperatingSystemType,
     architecture: ArchitectureType,
     *,
-    no_generic_operating_systems: bool = False,
-    no_generic_architectures: bool = False,
+    allow_generic_operating_systems: bool = True,
+    allow_generic_architectures: bool = True,
 ) -> list[ToolInfo]:
     """Return information about tools in a specified directory."""
 
@@ -270,7 +267,6 @@ def GetToolInfos(
             if not tool_directory.is_dir():
                 continue
 
-            root_directory = tool_directory
             tool_name = tool_directory.name
 
             if tool_name in exclude_tools:
@@ -281,164 +277,202 @@ def GetToolInfos(
                 tool_dm.WriteVerbose(f"'{tool_name}' has not been explicitly included.\n")
                 continue
 
-            tool_directory, semantic_version = _ApplyVersionDir(  #  noqa: PLW2901
-                tool_dm,
-                tool_name,
-                tool_directory,
-                tool_versions,
-            )
-
-            tool_directory, operating_system_type = _ApplyOperatingSystemDir(  # noqa: PLW2901
-                tool_dm,
-                tool_name,
-                tool_directory,
-                operating_system,
-                no_generic_operating_systems=no_generic_operating_systems,
-            )
-
-            tool_directory, architecture_type = _ApplyArchitectureDir(  # noqa: PLW2901
-                tool_dm,
-                tool_name,
-                tool_directory,
-                architecture,
-                no_generic_architectures=no_generic_architectures,
-            )
-
-            bin_tool_directory = _ApplyBinDir(tool_dm, tool_directory)
-
-            if tool_dm.result != 0:
+            try:
+                tool_infos = list(
+                    GenerateToolInfos(
+                        tool_directory,
+                        tool_versions.get(tool_name) or "latest",
+                        operating_system,
+                        architecture,
+                        allow_generic_operating_system=allow_generic_operating_systems,
+                        allow_generic_architecture=allow_generic_architectures,
+                    ),
+                )
+            except ValueError as ex:
+                tool_dm.WriteError(str(ex))
                 continue
 
-            results.append(
-                ToolInfo(
-                    tool_name,
-                    semantic_version,
-                    operating_system_type,
-                    architecture_type,
-                    root_directory,
-                    tool_directory,
-                    bin_tool_directory,
-                ),
-            )
+            if not tool_infos:
+                tool_dm.WriteError(
+                    f"No valid configurations found for the tool '{tool_name}' in '{tool_directory}'.\n"
+                )
+                continue
+
+            assert len(tool_infos) == 1, tool_infos
+            results.append(tool_infos[0])
 
     return results
 
 
 # ----------------------------------------------------------------------
-# ----------------------------------------------------------------------
-# ----------------------------------------------------------------------
-def _ApplyVersionDir(
-    dm: DoneManager,
-    tool_name: str,
-    tool_directory: Path,
-    tool_versions: dict[str, SemVer],
-) -> tuple[Path, SemVer | None]:
-    working_version_dirs: list[tuple[SemVer, Path]] = []
+def GenerateToolInfos(
+    tool_dir: Path,
+    version_filter: SemVer | Literal["latest"] | None,
+    operating_system_filter: OperatingSystemType | None,
+    architecture_filter: ArchitectureType | None,
+    *,
+    allow_generic_operating_system: bool = True,
+    allow_generic_architecture: bool = True,
+) -> Generator[ToolInfo]:
+    """Generate one or more ToolInfo objects for a specified tool directory."""
 
-    for potential_dir in tool_directory.iterdir():
+    tool_name = tool_dir.name
+
+    for versioned_dir, version in _GenerateVersionedDirs(
+        tool_name,
+        tool_dir,
+        version_filter,
+    ):
+        for operating_system_dir, operating_system in _GenerateOperatingSystemDirs(
+            tool_name,
+            versioned_dir,
+            operating_system_filter,
+            allow_generic_operating_system=allow_generic_operating_system,
+        ):
+            for architecture_dir, architecture in _GenerateArchitectureDirs(
+                tool_name,
+                operating_system_dir,
+                architecture_filter,
+                allow_generic_architecture=allow_generic_architecture,
+            ):
+                potential_bin_dir = architecture_dir / "bin"
+                bin_dir = potential_bin_dir if potential_bin_dir.is_dir() else architecture_dir
+
+                yield ToolInfo(
+                    tool_name,
+                    version,
+                    operating_system,
+                    architecture,
+                    tool_dir,
+                    architecture_dir,
+                    bin_dir,
+                )
+
+
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+def _GenerateVersionedDirs(
+    tool_name: str,
+    working_dir: Path,
+    dir_filter: SemVer | Literal["latest"] | None,
+) -> Generator[tuple[Path, SemVer | None]]:
+    versioned_infos: list[tuple[SemVer, Path]] = []
+
+    for potential_dir in working_dir.iterdir():
         if not potential_dir.is_dir():
             continue
 
         try:
             version = SemVer.coerce(potential_dir.name.removeprefix("v"))
-            working_version_dirs.append((version, potential_dir))
+            versioned_infos.append((version, potential_dir))
         except ValueError:
+            # This is an indication that the directory is not a version directory
             continue
 
-    if working_version_dirs:
-        working_version_dirs.sort(key=lambda x: x[0], reverse=True)
+    if not versioned_infos:
+        yield working_dir, None
+        return
 
-        working_versions = dict(working_version_dirs)
+    versioned_infos.sort(key=lambda x: x[0], reverse=True)
 
-        desired_version = tool_versions.get(
-            tool_name,
-            next(iter(working_versions)),
-        )
+    if dir_filter is not None:
+        versioned_infos_dict = dict(versioned_infos)
 
-        updated_working_dir = working_versions.get(desired_version)
-        if updated_working_dir is not None:
-            return updated_working_dir, desired_version
+        if isinstance(dir_filter, SemVer):
+            desired_version = dir_filter
+        elif isinstance(dir_filter, str) and dir_filter == "latest":
+            desired_version = next(iter(versioned_infos_dict))
+        else:
+            assert False, dir_filter  # noqa: B011, PT015  # pragma: no cover
 
-        dm.WriteError(
-            f"No directory found for version '{desired_version}' for the tool '{tool_name}' in '{tool_directory}'.\n"
-        )
+        updated_working_dir = versioned_infos_dict.get(desired_version)
+        if updated_working_dir is None:
+            msg = f"No directory found for version '{desired_version}' for the tool '{tool_name}' in '{working_dir}'."
+            raise ValueError(msg)
 
-    return tool_directory, None
+        yield updated_working_dir, desired_version
+
+    else:
+        for versioned_info in versioned_infos:
+            yield versioned_info[1], versioned_info[0]
 
 
 # ----------------------------------------------------------------------
-def _ApplyOperatingSystemDir(
-    dm: DoneManager,
+def _GenerateOperatingSystemDirs(
     tool_name: str,
-    tool_directory: Path,
-    operating_system: OperatingSystemType,
+    working_dir: Path,
+    dir_filter: OperatingSystemType | None,
     *,
-    no_generic_operating_systems: bool,
-) -> tuple[Path, OperatingSystemType | Literal["Generic"] | None]:
-    operating_system_dirs: dict[str, tuple[Path, OperatingSystemType | Literal["Generic"]]] = {}
+    allow_generic_operating_system: bool,
+) -> Generator[tuple[Path, OperatingSystemType | Literal["Generic"] | None]]:
+    os_string_map = OperatingSystemType.StringMap()
+    os_infos: dict[str, tuple[Path, OperatingSystemType | Literal["Generic"]]] = {}
 
-    for potential_dir in tool_directory.iterdir():
+    for potential_dir in working_dir.iterdir():
         if not potential_dir.is_dir():
             continue
 
-        potential_mapped_info = operating_system.string_map.get(potential_dir.name)
-        if potential_mapped_info is not None:
-            operating_system_dirs[potential_dir.name] = (potential_dir, potential_mapped_info)
+        potential_mapped_type = os_string_map.get(potential_dir.name)
+        if potential_mapped_type is not None:
+            os_infos[potential_dir.name] = (potential_dir, potential_mapped_type)
 
-    if operating_system_dirs:
-        if operating_system.name in operating_system_dirs:
-            return operating_system_dirs[operating_system.name]
+    if not os_infos:
+        yield working_dir, None
+        return
 
-        if not no_generic_operating_systems and "Generic" in operating_system_dirs:
-            return operating_system_dirs["Generic"]
+    if dir_filter is not None:
+        os_info = os_infos.get(dir_filter.name)
 
-        dm.WriteError(
-            f"No directory found for '{operating_system.name}' for the tool '{tool_name}' in '{tool_directory}'.\n"
-        )
+        if os_info is None:
+            if allow_generic_operating_system:
+                os_info = os_infos.get("Generic")
 
-    return tool_directory, None
+            if os_info is None:
+                msg = f"No directory found for '{dir_filter.name}' for the tool '{tool_name}' in '{working_dir}'."
+                raise ValueError(msg)
+
+        yield os_info
+
+    else:
+        yield from os_infos.values()
 
 
 # ----------------------------------------------------------------------
-def _ApplyArchitectureDir(
-    dm: DoneManager,
+def _GenerateArchitectureDirs(
     tool_name: str,
-    tool_directory: Path,
-    architecture: ArchitectureType,
+    working_dir: Path,
+    dir_filter: ArchitectureType | None,
     *,
-    no_generic_architectures: bool,
-) -> tuple[Path, ArchitectureType | Literal["Generic"] | None]:
-    architecture_dirs: dict[str, tuple[Path, ArchitectureType | Literal["Generic"]]] = {}
+    allow_generic_architecture: bool,
+) -> Generator[tuple[Path, ArchitectureType | Literal["Generic"] | None]]:
+    arch_string_map = ArchitectureType.StringMap()
+    arch_infos: dict[str, tuple[Path, ArchitectureType | Literal["Generic"]]] = {}
 
-    for potential_dir in tool_directory.iterdir():
+    for potential_dir in working_dir.iterdir():
         if not potential_dir.is_dir():
             continue
 
-        potential_mapped_info = architecture.string_map.get(potential_dir.name)
-        if potential_mapped_info is not None:
-            architecture_dirs[potential_dir.name] = (potential_dir, potential_mapped_info)
+        potential_mapped_type = arch_string_map.get(potential_dir.name)
+        if potential_mapped_type is not None:
+            arch_infos[potential_dir.name] = (potential_dir, potential_mapped_type)
 
-    if architecture_dirs:
-        if architecture.name in architecture_dirs:
-            return architecture_dirs[architecture.name]
+    if not arch_infos:
+        yield working_dir, None
+        return
 
-        if not no_generic_architectures and "Generic" in architecture_dirs:
-            return architecture_dirs["Generic"]
+    if dir_filter is not None:
+        arch_info = arch_infos.get(dir_filter.name)
 
-        dm.WriteError(
-            f"No directory found for '{architecture.name}' for the tool '{tool_name}' in '{tool_directory}'.\n"
-        )
+        if arch_info is None:
+            if allow_generic_architecture:
+                arch_info = arch_infos.get("Generic")
 
-    return tool_directory, None
+            if arch_info is None:
+                msg = f"No directory found for '{dir_filter.name}' for the tool '{tool_name}' in '{working_dir}'."
+                raise ValueError(msg)
 
+        yield arch_info
 
-# ----------------------------------------------------------------------
-def _ApplyBinDir(
-    dm: DoneManager,  # noqa: ARG001
-    tool_directory: Path,
-) -> Path:
-    potential_dir = tool_directory / "bin"
-    if potential_dir.is_dir():
-        return potential_dir
-
-    return tool_directory
+    else:
+        yield from arch_infos.values()

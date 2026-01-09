@@ -16,6 +16,7 @@ from typer.testing import CliRunner
 from dbrownell_ToolsDirectory import __version__
 from dbrownell_ToolsDirectory import __main__
 from dbrownell_ToolsDirectory import ToolInfo
+from dbrownell_ToolsDirectory import ManifestGenerator
 
 
 # ----------------------------------------------------------------------
@@ -29,8 +30,8 @@ def test_NoArgs(fs, monkeypatch):
     assert args.include_tools == set()
     assert args.exclude_tools == set()
     assert args.tool_versions == dict()
-    assert args.no_generic_operating_systems is False
-    assert args.no_generic_architectures is False
+    assert args.allow_generic_operating_systems is True
+    assert args.allow_generic_architectures is True
     assert args.dm.is_verbose is False
     assert args.dm.is_debug is False
 
@@ -46,8 +47,8 @@ def test_IncludesAndExcludes(fs, monkeypatch):
     assert args.include_tools == set(["A", "B"])
     assert args.exclude_tools == set(["C"])
     assert args.tool_versions == dict()
-    assert args.no_generic_operating_systems is False
-    assert args.no_generic_architectures is False
+    assert args.allow_generic_operating_systems is True
+    assert args.allow_generic_architectures is True
     assert args.dm.is_verbose is False
     assert args.dm.is_debug is False
 
@@ -70,8 +71,8 @@ def test_ToolVersions(fs, monkeypatch):
         "ToolA": SemVer("1.2.3"),
         "ToolB": SemVer("4.5.6"),
     }
-    assert args.no_generic_operating_systems is False
-    assert args.no_generic_architectures is False
+    assert args.allow_generic_operating_systems is True
+    assert args.allow_generic_architectures is True
     assert args.dm.is_verbose is False
     assert args.dm.is_debug is False
 
@@ -161,6 +162,33 @@ def test_Batch(fs, monkeypatch):
 
 
 # ----------------------------------------------------------------------
+def test_Manifest(fs: FakeFilesystem, monkeypatch: MonkeyPatch):
+    result, args = _ExecuteManifest(fs, monkeypatch, [])
+
+    assert result.exit_code == 0
+
+    assert args is not None
+    assert args.tool_directory
+    assert args.include_tools is None
+    assert args.exclude_tools is None
+
+
+# ----------------------------------------------------------------------
+def test_ManifestWithIncludeExclude(fs: FakeFilesystem, monkeypatch: MonkeyPatch):
+    result, args = _ExecuteManifest(
+        fs,
+        monkeypatch,
+        ["--include", "ToolA", "--include", "ToolB", "--exclude", "ToolC"],
+    )
+
+    assert result.exit_code == 0
+
+    assert args is not None
+    assert args.include_tools == {"ToolA", "ToolB"}
+    assert args.exclude_tools == {"ToolC"}
+
+
+# ----------------------------------------------------------------------
 def test_Version():
     result = CliRunner().invoke(__main__.app, ["version"])
 
@@ -180,8 +208,17 @@ class _Args:
     tool_versions: dict[str, SemVer]
     operating_system: ToolInfo.OperatingSystemType
     architecture: ToolInfo.ArchitectureType
-    no_generic_operating_systems: bool
-    no_generic_architectures: bool
+    allow_generic_operating_systems: bool
+    allow_generic_architectures: bool
+
+
+# ----------------------------------------------------------------------
+@dataclass(frozen=True)
+class _ManifestArgs:
+    dm: DoneManager
+    tool_directory: Path
+    include_tools: set[str] | None
+    exclude_tools: set[str] | None
 
 
 # ----------------------------------------------------------------------
@@ -214,13 +251,13 @@ def _Execute(
     mock = Mock(return_value=tool_infos)
 
     # ----------------------------------------------------------------------
-    def GetToolInfos(*args, **kwargs) -> list[ToolInfo.ToolInfo]:
+    def GetAllToolInfos(*args, **kwargs) -> list[ToolInfo.ToolInfo]:
         mock(*args, **kwargs)
         return tool_infos
 
     # ----------------------------------------------------------------------
 
-    monkeypatch.setattr("dbrownell_ToolsDirectory.ToolInfo.GetToolInfos", GetToolInfos)
+    monkeypatch.setattr("dbrownell_ToolsDirectory.ToolInfo.GetAllToolInfos", GetAllToolInfos)
 
     result = CliRunner().invoke(
         __main__.app, ["activate", str(output_filename), output_type, str(tool_directory)] + args
@@ -283,3 +320,46 @@ def _ScrubBashOutput(content: str) -> str:
     content = re.sub(r"id='(?P<id>[0-9]+)'", IdReplace, content)
 
     return content
+
+
+# ----------------------------------------------------------------------
+def _ExecuteManifest(
+    fs: FakeFilesystem,
+    monkeypatch: MonkeyPatch,
+    args: list[str],
+    tool_directory: Path = Path("tools"),
+    output_filename: Path = Path("manifest.yaml"),
+) -> tuple[Result, _ManifestArgs | None]:
+    fs.create_dir(tool_directory)
+
+    manifest = ManifestGenerator.ToolsManifest(tools=[])
+
+    generate_mock = Mock(return_value=manifest)
+    write_mock = Mock()
+
+    # ----------------------------------------------------------------------
+    def MockGenerateManifest(*args, **kwargs) -> ManifestGenerator.ToolsManifest:
+        generate_mock(*args, **kwargs)
+        return manifest
+
+    # ----------------------------------------------------------------------
+    def MockWriteManifestYaml(*args, **kwargs) -> None:
+        write_mock(*args, **kwargs)
+
+    # ----------------------------------------------------------------------
+
+    monkeypatch.setattr("dbrownell_ToolsDirectory.__main__.GenerateManifest", MockGenerateManifest)
+    monkeypatch.setattr("dbrownell_ToolsDirectory.__main__.WriteManifestYaml", MockWriteManifestYaml)
+
+    result = CliRunner().invoke(
+        __main__.app,
+        ["manifest", str(tool_directory), str(output_filename)] + args,
+    )
+
+    if result.exit_code != 0:
+        return result, None
+
+    assert generate_mock.call_count == 1
+    assert write_mock.call_count == 1
+
+    return result, _ManifestArgs(*generate_mock.mock_calls[0].args, **generate_mock.mock_calls[0].kwargs)

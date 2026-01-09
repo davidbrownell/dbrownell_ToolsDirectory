@@ -15,6 +15,7 @@ from typer.core import TyperGroup
 
 from dbrownell_ToolsDirectory import __version__
 from dbrownell_ToolsDirectory.CreateShellCommands import CreateShellCommands
+from dbrownell_ToolsDirectory.ManifestGenerator import GenerateManifest, WriteManifestYaml
 from dbrownell_ToolsDirectory.Shell.BashCommandVisitor import BashCommandVisitor
 from dbrownell_ToolsDirectory.Shell.BatchCommandVisitor import BatchCommandVisitor
 from dbrownell_ToolsDirectory.Shell.PowerShellCommandVisitor import PowerShellCommandVisitor
@@ -57,19 +58,20 @@ def _CreateHelp() -> str:
 
         Tools should be organized by:
 
-        ├── <tool_directory>/
-            └── <tool_name>/
-                └── \[<version>/]
-                    └── \[<operating_system:{operating_systems}>/]
-                        └── \[<architecture:{architectures}>/]
-                            └── \[bin/]
+        <tool_directory>/
+        └── <tool_name>/
+            └── \[<version>/]
+                └── \[<operating_system:{operating_systems}>/]
+                    └── \[<architecture:{architectures}>/]
+                        └── \[bin/]
 
         Each of these examples are supported:
 
         Tools/
         ├── Tool1/
-        ├── Tool2/
-        │   └── bin/
+        ├── Tool2/bin/
+        ├── Tool3/
+        │   └── 1.0.0/
         ├── Tool3/
         │   └── 1.0.0/
         │       └── bin/
@@ -94,8 +96,8 @@ def _CreateHelp() -> str:
 
         """,
     ).format(
-        operating_systems=" | ".join(ToolInfo.OperatingSystemType.Linux.string_map.keys()),
-        architectures=" | ".join(ToolInfo.ArchitectureType.x64.string_map.keys()),
+        operating_systems=" | ".join(ToolInfo.OperatingSystemType.StringMap().keys()),
+        architectures=" | ".join(ToolInfo.ArchitectureType.StringMap().keys()),
     )
 
 
@@ -123,12 +125,12 @@ def Activate(  # noqa: D103
     include: Annotated[
         list[str] | None,
         typer.Option(
-            "--include", "-i", help="Name of tools to include; all tools found are included by default."
+            "--include", "-i", help="Name of a tool to include; all tools found are included by default."
         ),
     ] = None,
     exclude: Annotated[
         list[str] | None,
-        typer.Option("--exclude", "-e", help="Name of tools to exclude; no tools are excluded by default."),
+        typer.Option("--exclude", "-e", help="Name of a tool to exclude; no tools are excluded by default."),
     ] = None,
     tool_version: Annotated[
         list[str] | None,
@@ -170,7 +172,7 @@ def Activate(  # noqa: D103
             output_filename.unlink()
 
         # Get the tools
-        tool_infos = ToolInfo.GetToolInfos(
+        tool_infos = ToolInfo.GetAllToolInfos(
             dm,
             tool_directory,
             set(include or []),
@@ -178,9 +180,12 @@ def Activate(  # noqa: D103
             _ExtractToolVersions(dm, tool_version or []),
             ToolInfo.OperatingSystemType.Calculate(),
             ToolInfo.ArchitectureType.Calculate(),
-            no_generic_operating_systems=no_generic_operating_system,
-            no_generic_architectures=no_generic_architecture,
+            allow_generic_operating_systems=not no_generic_operating_system,
+            allow_generic_architectures=not no_generic_architecture,
         )
+
+        if dm.result != 0:
+            return
 
         if not tool_infos:
             dm.WriteError(f"No tools were found in '{tool_directory}'.\n")
@@ -241,6 +246,62 @@ def Activate(  # noqa: D103
 
                 if isinstance(result, str):
                     f.write(result)
+
+
+# ----------------------------------------------------------------------
+@app.command("manifest", no_args_is_help=True)
+def Manifest(
+    tool_directory: Annotated[
+        Path,
+        typer.Argument(  # ty: ignore[no-matching-overload]
+            exists=True,
+            file_okay=False,
+            resolve_path=True,
+            path_type=Path,
+            help="Path to the tool directory.",
+        ),
+    ],
+    output_filename: Annotated[
+        Path,
+        typer.Argument(  # ty: ignore[no-matching-overload]
+            dir_okay=False,
+            resolve_path=True,
+            path_type=Path,
+            help="Path to the output YAML file.",
+        ),
+    ],
+    include: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--include", "-i", help="Name of a tool to include; all tools found are included by default."
+        ),
+    ] = None,
+    exclude: Annotated[
+        list[str] | None,
+        typer.Option("--exclude", "-e", help="Name of a tool to exclude; no tools are excluded by default."),
+    ] = None,
+    verbose: Annotated[  # noqa: FBT002
+        bool,
+        typer.Option("--verbose", help="Write verbose information to the terminal."),
+    ] = False,
+    debug: Annotated[  # noqa: FBT002
+        bool,
+        typer.Option("--debug", help="Write debug information to the terminal."),
+    ] = False,
+) -> None:
+    """Generate a YAML manifest of all tools in a directory."""
+
+    with DoneManager.CreateCommandLine(
+        flags=DoneManagerFlags.Create(verbose=verbose, debug=debug),
+    ) as dm:
+        manifest = GenerateManifest(
+            dm,
+            tool_directory,
+            include_tools=set(include) if include else None,
+            exclude_tools=set(exclude) if exclude else None,
+        )
+
+        WriteManifestYaml(manifest, output_filename)
 
 
 # ----------------------------------------------------------------------
