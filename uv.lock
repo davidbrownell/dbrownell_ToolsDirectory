@@ -130,6 +130,7 @@ source = { editable = "." }
 dependencies = [
     { name = "dbrownell-common" },
     { name = "python-dotenv" },
+    { name = "pyyaml" },
     { name = "semantic-version" },
     { name = "typer" },
 ]
@@ -150,6 +151,7 @@ dev = [
 requires-dist = [
     { name = "dbrownell-common", specifier = ">=0.16.0" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "semantic-version", specifier = ">=2.10.0" },
     { name = "typer", specifier = ">=0.20.1" },
 ]
