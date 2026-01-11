@@ -163,7 +163,7 @@ def test_Batch(fs, monkeypatch):
 
 # ----------------------------------------------------------------------
 def test_Manifest(fs: FakeFilesystem, monkeypatch: MonkeyPatch):
-    result, args = _ExecuteManifest(fs, monkeypatch, [])
+    result, args = _ExecuteManifest(fs, monkeypatch, ["--yes"])
 
     assert result.exit_code == 0
 
@@ -178,7 +178,7 @@ def test_ManifestWithIncludeExclude(fs: FakeFilesystem, monkeypatch: MonkeyPatch
     result, args = _ExecuteManifest(
         fs,
         monkeypatch,
-        ["--include", "ToolA", "--include", "ToolB", "--exclude", "ToolC"],
+        ["--include", "ToolA", "--include", "ToolB", "--exclude", "ToolC", "--yes"],
     )
 
     assert result.exit_code == 0
@@ -186,6 +186,62 @@ def test_ManifestWithIncludeExclude(fs: FakeFilesystem, monkeypatch: MonkeyPatch
     assert args is not None
     assert args.include_tools == {"ToolA", "ToolB"}
     assert args.exclude_tools == {"ToolC"}
+
+
+# ----------------------------------------------------------------------
+def test_ManifestConfirmationAccepted(fs: FakeFilesystem, monkeypatch: MonkeyPatch):
+    # Mock the interactive mode check to return True
+    monkeypatch.setattr("dbrownell_ToolsDirectory.__main__._IsInteractiveMode", lambda: True)
+
+    result, args = _ExecuteManifest(fs, monkeypatch, [], input="y\n")
+
+    assert result.exit_code == 0
+    assert (
+        textwrap.dedent(
+            """\
+
+            WARNING: The manifest will contain the full contents of .env files, which may
+            include passwords, API keys, or other sensitive information. These values will
+            be written to the output file in plain text.
+
+            """,
+        )
+        in result.output
+    )
+    assert args is not None
+
+
+# ----------------------------------------------------------------------
+def test_ManifestConfirmationDeclined(fs: FakeFilesystem, monkeypatch: MonkeyPatch):
+    # Mock the interactive mode check to return True
+    monkeypatch.setattr("dbrownell_ToolsDirectory.__main__._IsInteractiveMode", lambda: True)
+
+    result, _ = _ExecuteManifest(fs, monkeypatch, [], input="n\n")
+
+    assert result.exit_code == 1
+    assert (
+        textwrap.dedent(
+            """\
+
+            WARNING: The manifest will contain the full contents of .env files, which may
+            include passwords, API keys, or other sensitive information. These values will
+            be written to the output file in plain text.
+
+            """,
+        )
+        in result.output
+    )
+
+
+# ----------------------------------------------------------------------
+def test_ManifestNonInteractiveWithoutYes(fs: FakeFilesystem, monkeypatch: MonkeyPatch):
+    # Mock the interactive mode check to return False (non-interactive)
+    monkeypatch.setattr("dbrownell_ToolsDirectory.__main__._IsInteractiveMode", lambda: False)
+
+    result, _ = _ExecuteManifest(fs, monkeypatch, [])
+
+    assert result.exit_code == 1
+    assert result.output == "ERROR: The --yes flag is required when running in non-interactive mode.\n"
 
 
 # ----------------------------------------------------------------------
@@ -329,6 +385,7 @@ def _ExecuteManifest(
     args: list[str],
     tool_directory: Path = Path("tools"),
     output_filename: Path = Path("manifest.yaml"),
+    input: str | None = None,
 ) -> tuple[Result, _ManifestArgs | None]:
     fs.create_dir(tool_directory)
 
@@ -354,6 +411,7 @@ def _ExecuteManifest(
     result = CliRunner().invoke(
         __main__.app,
         ["manifest", str(tool_directory), str(output_filename)] + args,
+        input=input,
     )
 
     if result.exit_code != 0:

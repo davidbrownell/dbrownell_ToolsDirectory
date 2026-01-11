@@ -44,8 +44,8 @@ class ToolConfiguration:
     binary_directory: Path
     """Binary directory of a specific version of the tool, relative to tools_directory."""
 
-    env_files: list[Path] = field(default_factory=list)
-    """Environment files that exist on disk, relative to tools_directory."""
+    env_files: dict[Path, str] = field(default_factory=dict)
+    """Environment files (relative to tools_directory) mapped to their contents."""
 
 
 # ----------------------------------------------------------------------
@@ -131,12 +131,12 @@ def GenerateManifest(
             tool_configurations: list[ToolConfiguration] = []
 
             for tool_info in tool_infos:
-                # Find existing env files (relative to tools_directory)
-                existing_env_files: list[Path] = [
-                    env_file.relative_to(tools_directory)
+                # Find existing env files (relative to tools_directory) and read their content
+                existing_env_files: dict[Path, str] = {
+                    env_file.relative_to(tools_directory): env_file.read_text(encoding="utf-8")
                     for env_file in tool_info.GeneratePotentialEnvFiles()
                     if env_file.is_file()
-                ]
+                }
 
                 tool_configurations.append(
                     ToolConfiguration(
@@ -171,11 +171,49 @@ def WriteManifestYaml(
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     with output_path.open("w", encoding="utf-8") as f:
-        yaml.dump(yaml_data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+        yaml.dump(
+            yaml_data,
+            f,
+            Dumper=_LiteralBlockDumper,
+            default_flow_style=False,
+            allow_unicode=True,
+            sort_keys=False,
+        )
 
 
 # ----------------------------------------------------------------------
+# |
+# |  Private Types
+# |
 # ----------------------------------------------------------------------
+class _LiteralBlockScalar(str):
+    """A string subclass that will be serialized as a YAML literal block scalar (|)."""
+
+    __slots__ = ()
+
+
+# ----------------------------------------------------------------------
+class _LiteralBlockDumper(yaml.SafeDumper):
+    """Custom YAML dumper that represents _LiteralBlockScalar as literal block scalars."""
+
+
+# ----------------------------------------------------------------------
+# |
+# |  Private Functions
+# |
+# ----------------------------------------------------------------------
+def _LiteralBlockScalarRepresenter(
+    dumper: yaml.SafeDumper,
+    data: _LiteralBlockScalar,
+) -> yaml.ScalarNode:
+    """Represent a _LiteralBlockScalar as a literal block scalar."""
+
+    return dumper.represent_scalar("tag:yaml.org,2002:str", data, style="|")
+
+
+_LiteralBlockDumper.add_representer(_LiteralBlockScalar, _LiteralBlockScalarRepresenter)
+
+
 # ----------------------------------------------------------------------
 def _ManifestToDict(manifest: ToolsManifest) -> dict:
     """Convert a ToolsManifest to a dictionary suitable for YAML serialization."""
@@ -227,5 +265,7 @@ def _ToolConfigurationToDict(config: ToolConfiguration) -> dict:
         "architecture": arch_value,
         "versioned_directory": str(config.versioned_directory.as_posix()),
         "binary_directory": str(config.binary_directory.as_posix()),
-        "env_files": [str(p.as_posix()) for p in config.env_files],
+        "env_files": {
+            str(path.as_posix()): _LiteralBlockScalar(content) for path, content in config.env_files.items()
+        },
     }

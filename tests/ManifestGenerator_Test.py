@@ -48,7 +48,7 @@ class TestToolConfiguration:
             binary_directory=Path("Tool1/1.0.0/Linux/x64/bin"),
         )
 
-        assert config.env_files == []
+        assert config.env_files == {}
 
     # ----------------------------------------------------------------------
     def test_WithEnvFiles(self) -> None:
@@ -58,10 +58,10 @@ class TestToolConfiguration:
             architecture=ArchitectureType.x64,
             versioned_directory=Path("Tool1/1.0.0/Linux/x64"),
             binary_directory=Path("Tool1/1.0.0/Linux/x64/bin"),
-            env_files=[Path("Tool1/Tool1.env")],
+            env_files={Path("Tool1/Tool1.env"): "FOO=BAR"},
         )
 
-        assert config.env_files == [Path("Tool1/Tool1.env")]
+        assert config.env_files == {Path("Tool1/Tool1.env"): "FOO=BAR"}
 
 
 # ----------------------------------------------------------------------
@@ -117,7 +117,7 @@ class TestGenerateManifest:
         assert config.architecture is None
         assert config.versioned_directory == Path("Tool1")
         assert config.binary_directory == Path("Tool1")
-        assert config.env_files == []
+        assert config.env_files == {}
 
     # ----------------------------------------------------------------------
     def test_SingleToolWithBinDirectory(self, fs: FakeFilesystem) -> None:
@@ -163,7 +163,7 @@ class TestGenerateManifest:
         assert config0.architecture is None
         assert config0.versioned_directory == Path("Tool1/2.0.0")
         assert config0.binary_directory == Path("Tool1/2.0.0")
-        assert config0.env_files == []
+        assert config0.env_files == {}
 
         config1 = manifest.tools[0].configurations[1]
         assert config1.version == SemVer("1.5.0")
@@ -171,7 +171,7 @@ class TestGenerateManifest:
         assert config1.architecture is None
         assert config1.versioned_directory == Path("Tool1/1.5.0")
         assert config1.binary_directory == Path("Tool1/1.5.0")
-        assert config1.env_files == []
+        assert config1.env_files == {}
 
         config2 = manifest.tools[0].configurations[2]
         assert config2.version == SemVer("1.0.0")
@@ -179,7 +179,7 @@ class TestGenerateManifest:
         assert config2.architecture is None
         assert config2.versioned_directory == Path("Tool1/1.0.0")
         assert config2.binary_directory == Path("Tool1/1.0.0")
-        assert config2.env_files == []
+        assert config2.env_files == {}
 
     # ----------------------------------------------------------------------
     def test_SingleToolWithOS(self, fs: FakeFilesystem) -> None:
@@ -198,7 +198,7 @@ class TestGenerateManifest:
         assert config0.architecture is None
         assert config0.versioned_directory == Path("Tool1/Linux")
         assert config0.binary_directory == Path("Tool1/Linux")
-        assert config0.env_files == []
+        assert config0.env_files == {}
 
         config1 = manifest.tools[0].configurations[1]
         assert config1.version is None
@@ -206,7 +206,7 @@ class TestGenerateManifest:
         assert config1.architecture is None
         assert config1.versioned_directory == Path("Tool1/Windows")
         assert config1.binary_directory == Path("Tool1/Windows")
-        assert config1.env_files == []
+        assert config1.env_files == {}
 
     # ----------------------------------------------------------------------
     def test_SingleToolWithOSAndArch(self, fs: FakeFilesystem) -> None:
@@ -225,7 +225,7 @@ class TestGenerateManifest:
         assert config0.architecture == ArchitectureType.ARM64
         assert config0.versioned_directory == Path("Tool1/Linux/ARM64")
         assert config0.binary_directory == Path("Tool1/Linux/ARM64")
-        assert config0.env_files == []
+        assert config0.env_files == {}
 
         config1 = manifest.tools[0].configurations[1]
         assert config1.version is None
@@ -233,7 +233,7 @@ class TestGenerateManifest:
         assert config1.architecture == ArchitectureType.x64
         assert config1.versioned_directory == Path("Tool1/Linux/x64")
         assert config1.binary_directory == Path("Tool1/Linux/x64")
-        assert config1.env_files == []
+        assert config1.env_files == {}
 
     # ----------------------------------------------------------------------
     def test_SingleToolWithVersionOsArch(self, fs: FakeFilesystem) -> None:
@@ -354,7 +354,7 @@ class TestGenerateManifest:
     def test_WithExistingEnvFile(self, fs: FakeFilesystem) -> None:
         tools_dir = Path("/tools")
         fs.create_dir(tools_dir / "Tool1")
-        fs.create_file(tools_dir / "Tool1" / "Tool1.env")
+        fs.create_file(tools_dir / "Tool1" / "Tool1.env", contents="FOO=BAR\n")
 
         manifest = _GenerateManifest(tools_dir)
 
@@ -362,14 +362,14 @@ class TestGenerateManifest:
         config = manifest.tools[0].configurations[0]
         assert config.versioned_directory == Path("Tool1")
         assert config.binary_directory == Path("Tool1")
-        assert config.env_files == [Path("Tool1/Tool1.env")]
+        assert config.env_files == {Path("Tool1/Tool1.env"): "FOO=BAR\n"}
 
     # ----------------------------------------------------------------------
     def test_WithMultipleExistingEnvFiles(self, fs: FakeFilesystem) -> None:
         tools_dir = Path("/tools")
         fs.create_dir(tools_dir / "Tool1" / "1.0.0" / "Linux")
-        fs.create_file(tools_dir / "Tool1" / "Tool1.env")
-        fs.create_file(tools_dir / "Tool1" / "1.0.0" / "Tool1-Linux.env")
+        fs.create_file(tools_dir / "Tool1" / "Tool1.env", contents="FOO=BAR\n")
+        fs.create_file(tools_dir / "Tool1" / "1.0.0" / "Tool1-Linux.env", contents="BAZ=QUX\n")
 
         manifest = _GenerateManifest(tools_dir)
 
@@ -378,8 +378,8 @@ class TestGenerateManifest:
         assert config.versioned_directory == Path("Tool1/1.0.0/Linux")
         assert config.binary_directory == Path("Tool1/1.0.0/Linux")
         assert len(config.env_files) == 2
-        assert Path("Tool1/Tool1.env") in config.env_files
-        assert Path("Tool1/1.0.0/Tool1-Linux.env") in config.env_files
+        assert config.env_files[Path("Tool1/Tool1.env")] == "FOO=BAR\n"
+        assert config.env_files[Path("Tool1/1.0.0/Tool1-Linux.env")] == "BAZ=QUX\n"
 
     # ----------------------------------------------------------------------
     def test_IgnoresNonDirectories(self, fs: FakeFilesystem) -> None:
@@ -444,7 +444,7 @@ class TestWriteManifestYaml:
                             architecture=None,
                             versioned_directory=Path("Tool1"),
                             binary_directory=Path("Tool1"),
-                            env_files=[],
+                            env_files={},
                         ),
                     ],
                 ),
@@ -476,7 +476,7 @@ class TestWriteManifestYaml:
                             architecture=None,
                             versioned_directory=Path("Tool1/1.0.0"),
                             binary_directory=Path("Tool1/1.0.0"),
-                            env_files=[],
+                            env_files={},
                         ),
                     ],
                 ),
@@ -504,7 +504,7 @@ class TestWriteManifestYaml:
                             architecture=ArchitectureType.x64,
                             versioned_directory=Path("Tool1/Linux/x64"),
                             binary_directory=Path("Tool1/Linux/x64"),
-                            env_files=[],
+                            env_files={},
                         ),
                     ],
                 ),
@@ -534,7 +534,7 @@ class TestWriteManifestYaml:
                             architecture=None,
                             versioned_directory=Path("Tool1/Generic"),
                             binary_directory=Path("Tool1/Generic"),
-                            env_files=[],
+                            env_files={},
                         ),
                     ],
                 ),
@@ -563,10 +563,10 @@ class TestWriteManifestYaml:
                             architecture=None,
                             versioned_directory=Path("Tool1"),
                             binary_directory=Path("Tool1"),
-                            env_files=[
-                                Path("Tool1/Tool1.env"),
-                                Path("Tool1/Tool1-Linux.env"),
-                            ],
+                            env_files={
+                                Path("Tool1/Tool1.env"): "FOO=BAR\n",
+                                Path("Tool1/Tool1-Linux.env"): "BAZ=QUX\n",
+                            },
                         ),
                     ],
                 ),
@@ -579,7 +579,10 @@ class TestWriteManifestYaml:
             data = yaml.safe_load(f)
 
         config = data["tools"][0]["configurations"][0]
-        assert config["env_files"] == ["Tool1/Tool1.env", "Tool1/Tool1-Linux.env"]
+        assert config["env_files"] == {
+            "Tool1/Tool1.env": "FOO=BAR\n",
+            "Tool1/Tool1-Linux.env": "BAZ=QUX\n",
+        }
 
     # ----------------------------------------------------------------------
     def test_UsesForwardSlashesInPaths(self, fs: FakeFilesystem) -> None:
@@ -595,7 +598,7 @@ class TestWriteManifestYaml:
                             architecture=ArchitectureType.x64,
                             versioned_directory=Path("Tool1/1.0.0/Linux/x64"),
                             binary_directory=Path("Tool1/1.0.0/Linux/x64/bin"),
-                            env_files=[Path("Tool1/Tool1.env")],
+                            env_files={Path("Tool1/Tool1.env"): "FOO=BAR\n"},
                         ),
                     ],
                 ),
@@ -611,6 +614,70 @@ class TestWriteManifestYaml:
         assert "Tool1/1.0.0/Linux/x64" in content
         assert "Tool1/1.0.0/Linux/x64/bin" in content
 
+    # ----------------------------------------------------------------------
+    def test_EnvFileContentUsesLiteralBlockScalar(self, fs: FakeFilesystem) -> None:
+        output_path = Path("/output/manifest.yaml")
+        manifest = ToolsManifest(
+            tools=[
+                ToolManifestEntry(
+                    name="Tool1",
+                    configurations=[
+                        ToolConfiguration(
+                            version=None,
+                            operating_system=None,
+                            architecture=None,
+                            versioned_directory=Path("Tool1"),
+                            binary_directory=Path("Tool1"),
+                            env_files={
+                                Path("Tool1/Tool1.env"): "FOO=BAR\nBAZ=QUX\n",
+                            },
+                        ),
+                    ],
+                ),
+            ],
+        )
+
+        WriteManifestYaml(manifest, output_path)
+
+        with output_path.open() as f:
+            content = f.read()
+
+        # Check that literal block scalar format (|) is used for multiline content
+        assert "Tool1/Tool1.env: |" in content
+        assert "FOO=BAR" in content
+        assert "BAZ=QUX" in content
+
+    # ----------------------------------------------------------------------
+    def test_EmptyEnvFileContent(self, fs: FakeFilesystem) -> None:
+        output_path = Path("/output/manifest.yaml")
+        manifest = ToolsManifest(
+            tools=[
+                ToolManifestEntry(
+                    name="Tool1",
+                    configurations=[
+                        ToolConfiguration(
+                            version=None,
+                            operating_system=None,
+                            architecture=None,
+                            versioned_directory=Path("Tool1"),
+                            binary_directory=Path("Tool1"),
+                            env_files={
+                                Path("Tool1/Tool1.env"): "",
+                            },
+                        ),
+                    ],
+                ),
+            ],
+        )
+
+        WriteManifestYaml(manifest, output_path)
+
+        with output_path.open() as f:
+            data = yaml.safe_load(f)
+
+        config = data["tools"][0]["configurations"][0]
+        assert config["env_files"]["Tool1/Tool1.env"] == ""
+
 
 # ----------------------------------------------------------------------
 class TestIntegration:
@@ -625,11 +692,11 @@ class TestIntegration:
         fs.create_dir(tools_dir / "Tool1" / "1.0.0" / "Linux" / "x64" / "bin")
         fs.create_dir(tools_dir / "Tool1" / "1.0.0" / "Windows" / "x64")
         fs.create_dir(tools_dir / "Tool1" / "2.0.0" / "Linux" / "x64")
-        fs.create_file(tools_dir / "Tool1" / "Tool1.env")
+        fs.create_file(tools_dir / "Tool1" / "Tool1.env", contents="FOO=BAR\n")
 
         # Tool2 simple structure
         fs.create_dir(tools_dir / "Tool2")
-        fs.create_file(tools_dir / "Tool2" / "Tool2.env")
+        fs.create_file(tools_dir / "Tool2" / "Tool2.env", contents="BAZ=QUX\n")
 
         # Generate manifest
         manifest = _GenerateManifest(tools_dir)
@@ -655,3 +722,10 @@ class TestIntegration:
         versions = [c["version"] for c in tool1_configs]
         assert versions.count("1.0.0") == 2
         assert versions.count("2.0.0") == 1
+
+        # Verify env_files contain content
+        for config in tool1_configs:
+            assert config["env_files"]["Tool1/Tool1.env"] == "FOO=BAR\n"
+
+        tool2_config = data["tools"][1]["configurations"][0]
+        assert tool2_config["env_files"]["Tool2/Tool2.env"] == "BAZ=QUX\n"
