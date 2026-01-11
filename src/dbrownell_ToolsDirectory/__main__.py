@@ -280,6 +280,10 @@ def Manifest(
         list[str] | None,
         typer.Option("--exclude", "-e", help="Name of a tool to exclude; no tools are excluded by default."),
     ] = None,
+    yes: Annotated[  # noqa: FBT002
+        bool,
+        typer.Option("--yes", help="Skip the security confirmation prompt."),
+    ] = False,
     verbose: Annotated[  # noqa: FBT002
         bool,
         typer.Option("--verbose", help="Write verbose information to the terminal."),
@@ -290,6 +294,30 @@ def Manifest(
     ] = False,
 ) -> None:
     """Generate a YAML manifest of all tools in a directory."""
+
+    if not yes:
+        # Check if running in non-interactive mode
+        if not _IsInteractiveMode():
+            sys.stdout.write("ERROR: The --yes flag is required when running in non-interactive mode.\n")
+            raise typer.Exit(code=1)
+
+        # Display security warning
+        sys.stdout.write(
+            textwrap.dedent(
+                """\
+
+                WARNING: The manifest will contain the full contents of .env files, which may
+                include passwords, API keys, or other sensitive information. These values will
+                be written to the output file in plain text.
+
+                """,
+            ),
+        )
+
+        if not typer.confirm("Are you sure you want to continue?"):
+            raise typer.Exit(code=1)
+
+        sys.stdout.write("\n\n")
 
     with DoneManager.CreateCommandLine(
         flags=DoneManagerFlags.Create(verbose=verbose, debug=debug),
@@ -350,6 +378,18 @@ def _ExtractToolVersions(
         results[tool_name] = version
 
     return results
+
+
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+def _IsInteractiveMode() -> bool:
+    """Check if the current session is running in interactive mode.
+
+    This function was introduced to make testing easier.
+    """
+
+    return sys.stdin.isatty()
 
 
 # ----------------------------------------------------------------------
