@@ -2,7 +2,9 @@ import os
 import textwrap
 
 from pathlib import Path
+from typing import cast
 
+from dbrownell_Common.Streams.DoneManager import DoneManager
 from dbrownell_Common.TestHelpers.StreamTestHelpers import GenerateDoneManagerAndContent
 from semantic_version import Version as SemVer
 
@@ -16,7 +18,7 @@ def test_Single() -> None:
     dm_and_sink = iter(GenerateDoneManagerAndContent())
 
     commands: list[Command] = CreateShellCommands(
-        next(dm_and_sink),
+        cast(DoneManager, next(dm_and_sink)),
         [
             ToolInfo(
                 "the tool",
@@ -41,7 +43,7 @@ def test_Multiple() -> None:
     dm_and_sink = iter(GenerateDoneManagerAndContent())
 
     commands: list[Command] = CreateShellCommands(
-        next(dm_and_sink),
+        cast(DoneManager, next(dm_and_sink)),
         [
             ToolInfo(
                 "tool A",
@@ -112,7 +114,7 @@ def test_EnvFiles(fs) -> None:
     dm_and_sink = iter(GenerateDoneManagerAndContent())
 
     commands: list[Command] = CreateShellCommands(
-        next(dm_and_sink),
+        cast(DoneManager, next(dm_and_sink)),
         [
             ToolInfo(
                 "Tool1",
@@ -140,7 +142,7 @@ def test_EnvFiles(fs) -> None:
         Raw("\n"),
     ]
 
-    assert "DONE! (0, <scrubbed duration>)" in next(dm_and_sink)
+    assert "DONE! (0, <scrubbed duration>)" in cast(str, next(dm_and_sink))
 
 
 # ----------------------------------------------------------------------
@@ -159,7 +161,7 @@ def test_EnvFilesInvalidContent(fs) -> None:
     dm_and_sink = iter(GenerateDoneManagerAndContent())
 
     commands: list[Command] = CreateShellCommands(
-        next(dm_and_sink),
+        cast(DoneManager, next(dm_and_sink)),
         [
             ToolInfo(
                 "Tool1",
@@ -178,7 +180,7 @@ def test_EnvFilesInvalidContent(fs) -> None:
         Augment("PATH", str(Path("/tools/Tool1/version/bin"))),
     ]
 
-    assert next(dm_and_sink) == textwrap.dedent(
+    assert cast(str, next(dm_and_sink)) == textwrap.dedent(
         """\
         Heading...
           Creating shell commands...

@@ -4,9 +4,11 @@ import sys
 
 from pathlib import Path
 from unittest.mock import patch
+from typing import cast
 
 import pytest
 
+from dbrownell_Common.Streams.DoneManager import DoneManager
 from dbrownell_Common.TestHelpers.StreamTestHelpers import GenerateDoneManagerAndContent
 from pyfakefs.fake_filesystem import FakeFilesystem
 from semantic_version import Version as SemVer
@@ -1007,7 +1009,7 @@ class TestGetAllToolInfos:
             dm_and_sink = iter(GenerateDoneManagerAndContent())
 
             result = GetAllToolInfos(
-                next(dm_and_sink),
+                cast(DoneManager, next(dm_and_sink)),
                 Path("/tools"),
                 include_tools=set(),
                 exclude_tools=set(),
@@ -1025,7 +1027,7 @@ class TestGetAllToolInfos:
             dm_and_sink = iter(GenerateDoneManagerAndContent())
 
             result = GetAllToolInfos(
-                next(dm_and_sink),
+                cast(DoneManager, next(dm_and_sink)),
                 Path("/tools"),
                 include_tools=set(),
                 exclude_tools=set(),
@@ -1046,7 +1048,7 @@ class TestGetAllToolInfos:
             dm_and_sink = iter(GenerateDoneManagerAndContent())
 
             result = GetAllToolInfos(
-                next(dm_and_sink),
+                cast(DoneManager, next(dm_and_sink)),
                 Path("/tools"),
                 include_tools=set(),
                 exclude_tools=set(),
@@ -1069,7 +1071,7 @@ class TestGetAllToolInfos:
             dm_and_sink = iter(GenerateDoneManagerAndContent())
 
             result = GetAllToolInfos(
-                next(dm_and_sink),
+                cast(DoneManager, next(dm_and_sink)),
                 Path("/tools"),
                 include_tools=set(),
                 exclude_tools=set(),
@@ -1092,7 +1094,7 @@ class TestGetAllToolInfos:
             dm_and_sink = iter(GenerateDoneManagerAndContent())
 
             result = GetAllToolInfos(
-                next(dm_and_sink),
+                cast(DoneManager, next(dm_and_sink)),
                 Path("/tools"),
                 include_tools={"Tool1"},
                 exclude_tools=set(),
@@ -1113,7 +1115,7 @@ class TestGetAllToolInfos:
             dm_and_sink = iter(GenerateDoneManagerAndContent())
 
             result = GetAllToolInfos(
-                next(dm_and_sink),
+                cast(DoneManager, next(dm_and_sink)),
                 Path("/tools"),
                 include_tools={"Tool1", "Tool2"},
                 exclude_tools=set(),
@@ -1136,7 +1138,7 @@ class TestGetAllToolInfos:
             dm_and_sink = iter(GenerateDoneManagerAndContent())
 
             result = GetAllToolInfos(
-                next(dm_and_sink),
+                cast(DoneManager, next(dm_and_sink)),
                 Path("/tools"),
                 include_tools=set(),
                 exclude_tools={"Tool1"},
@@ -1160,7 +1162,7 @@ class TestGetAllToolInfos:
             dm_and_sink = iter(GenerateDoneManagerAndContent())
 
             result = GetAllToolInfos(
-                next(dm_and_sink),
+                cast(DoneManager, next(dm_and_sink)),
                 Path("/tools"),
                 include_tools=set(),
                 exclude_tools={"Tool1", "Tool2"},
@@ -1180,7 +1182,7 @@ class TestGetAllToolInfos:
             dm_and_sink = iter(GenerateDoneManagerAndContent())
 
             result = GetAllToolInfos(
-                next(dm_and_sink),
+                cast(DoneManager, next(dm_and_sink)),
                 Path("/tools"),
                 include_tools=set(),  # Empty means all
                 exclude_tools=set(),
@@ -1201,7 +1203,7 @@ class TestGetAllToolInfos:
             dm_and_sink = iter(GenerateDoneManagerAndContent())
 
             result = GetAllToolInfos(
-                next(dm_and_sink),
+                cast(DoneManager, next(dm_and_sink)),
                 Path("/tools"),
                 include_tools=set(),
                 exclude_tools=set(),
@@ -1222,7 +1224,7 @@ class TestGetAllToolInfos:
             dm_and_sink = iter(GenerateDoneManagerAndContent())
 
             result = GetAllToolInfos(
-                next(dm_and_sink),
+                cast(DoneManager, next(dm_and_sink)),
                 Path("/tools"),
                 include_tools=set(),
                 exclude_tools=set(),
@@ -1244,7 +1246,7 @@ class TestGetAllToolInfos:
             dm_and_sink = iter(GenerateDoneManagerAndContent())
 
             result = GetAllToolInfos(
-                next(dm_and_sink),
+                cast(DoneManager, next(dm_and_sink)),
                 Path("/tools"),
                 include_tools=set(),
                 exclude_tools=set(),
@@ -1264,7 +1266,7 @@ class TestGetAllToolInfos:
             dm_and_sink = iter(GenerateDoneManagerAndContent())
 
             result = GetAllToolInfos(
-                next(dm_and_sink),
+                cast(DoneManager, next(dm_and_sink)),
                 Path("/tools"),
                 include_tools=set(),
                 exclude_tools=set(),
@@ -1283,7 +1285,7 @@ class TestGetAllToolInfos:
             dm_and_sink = iter(GenerateDoneManagerAndContent())
 
             result = GetAllToolInfos(
-                next(dm_and_sink),
+                cast(DoneManager, next(dm_and_sink)),
                 Path("/tools"),
                 include_tools=set(),
                 exclude_tools=set(),
@@ -1324,7 +1326,7 @@ class TestGetAllToolInfos:
             dm_and_sink = iter(GenerateDoneManagerAndContent())
 
             result = GetAllToolInfos(
-                next(dm_and_sink),
+                cast(DoneManager, next(dm_and_sink)),
                 Path("/tools"),
                 include_tools=set(),
                 exclude_tools=set(),
@@ -1390,7 +1392,7 @@ class TestGetAllToolInfos:
             dm_and_sink = iter(GenerateDoneManagerAndContent())
 
             result = GetAllToolInfos(
-                next(dm_and_sink),
+                cast(DoneManager, next(dm_and_sink)),
                 Path("/tools"),
                 include_tools=set(),
                 exclude_tools=set(),
@@ -1404,7 +1406,7 @@ class TestGetAllToolInfos:
             assert result == []
 
             # Verify that error messages were written for both tools
-            output = next(dm_and_sink)
+            output = cast(str, next(dm_and_sink))
             assert "No directory found for 'Linux' for the tool 'Tool1'" in output
             assert "No directory found for 'Linux' for the tool 'Tool2'" in output
 
@@ -1437,7 +1439,7 @@ class TestIntegrationAndEdgeCases:
         dm_and_sink = iter(GenerateDoneManagerAndContent())
 
         result = GetAllToolInfos(
-            next(dm_and_sink),
+            cast(DoneManager, next(dm_and_sink)),
             Path("/tools"),
             include_tools=set(),
             exclude_tools=set(),

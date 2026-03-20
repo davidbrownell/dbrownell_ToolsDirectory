@@ -1,5 +1,6 @@
 # noqa: D100
 from abc import abstractmethod, ABC
+from typing import TYPE_CHECKING
 
 from dbrownell_ToolsDirectory.Shell.Commands import (
     Command,
@@ -17,6 +18,9 @@ from dbrownell_ToolsDirectory.Shell.Commands import (
     Raw,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 
 # ----------------------------------------------------------------------
 class CommandVisitor(ABC):
@@ -24,7 +28,7 @@ class CommandVisitor(ABC):
 
     # ----------------------------------------------------------------------
     def __init__(self) -> None:
-        self._dispatcher = {
+        self._dispatcher: dict[type[Command], Callable] = {
             Message: self.OnMessage,
             Call: self.OnCall,
             Execute: self.OnExecute,
@@ -48,7 +52,7 @@ class CommandVisitor(ABC):
             msg = f"No handler for command type: '{command.__class__.__name__}'"
             raise TypeError(msg)
 
-        return handler(command)  # ty: ignore[invalid-argument-type]
+        return handler(command)
 
     # ----------------------------------------------------------------------
     # ----------------------------------------------------------------------

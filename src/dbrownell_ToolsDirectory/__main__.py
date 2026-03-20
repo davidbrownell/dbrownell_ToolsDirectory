@@ -3,7 +3,7 @@ import re
 import sys
 import textwrap
 
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, TYPE_CHECKING
 
@@ -43,7 +43,7 @@ app = typer.Typer(
 
 
 # ----------------------------------------------------------------------
-class OutputType(str, Enum):
+class OutputType(StrEnum):
     """Specify the type of output to generate."""
 
     Bash = "bash"
