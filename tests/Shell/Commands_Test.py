@@ -116,7 +116,7 @@ def test_Exit() -> None:
     command = Exit(
         pause_on_success=pause_on_success,  # ty: ignore[invalid-argument-type]
         pause_on_error=pause_on_error,  # ty: ignore[invalid-argument-type]
-        return_code=return_code,  # ty: ignore[invalid-argument-type]
+        return_code=return_code,
     )
 
     assert command.pause_on_success is pause_on_success
@@ -130,7 +130,7 @@ def test_ExitOnError() -> None:
     use_return_statement = Mock()
 
     command = ExitOnError(
-        variable_name=variable_name,  # ty: ignore[invalid-argument-type]
+        variable_name=variable_name,
         return_code=None,
         use_return_statement=use_return_statement,  # ty: ignore[invalid-argument-type]
     )
@@ -152,7 +152,7 @@ def test_PersistError() -> None:
     variable_name = Mock()
 
     command = PersistError(
-        variable_name=variable_name,  # ty: ignore[invalid-argument-type]
+        variable_name=variable_name,
     )
 
     assert command.variable_name is variable_name
@@ -163,7 +163,7 @@ def test_PushDirectory() -> None:
     value = Mock()
 
     command = PushDirectory(
-        value=value,  # ty: ignore[invalid-argument-type]
+        value=value,
     )
 
     assert command.value is value
@@ -181,7 +181,7 @@ def test_Raw() -> None:
     value = Mock()
 
     command = Raw(
-        value=value,  # ty: ignore[invalid-argument-type]
+        value=value,
     )
 
     assert command.value is value

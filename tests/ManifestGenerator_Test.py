@@ -3,9 +3,11 @@ from pathlib import Path
 
 import yaml
 
+from dbrownell_Common.Streams.DoneManager import DoneManager
 from dbrownell_Common.TestHelpers.StreamTestHelpers import GenerateDoneManagerAndContent
 from pyfakefs.fake_filesystem import FakeFilesystem
 from semantic_version import Version as SemVer
+from typing import cast
 
 from dbrownell_ToolsDirectory.ManifestGenerator import (
     GenerateManifest,
@@ -27,7 +29,7 @@ def _GenerateManifest(
     dm_and_sink = iter(GenerateDoneManagerAndContent())
 
     return GenerateManifest(
-        next(dm_and_sink),
+        cast(DoneManager, next(dm_and_sink)),
         tools_directory,
         include_tools=include_tools,
         exclude_tools=exclude_tools,
