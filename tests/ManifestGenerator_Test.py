@@ -16,7 +16,7 @@ from dbrownell_ToolsDirectory.ManifestGenerator import (
     ToolsManifest,
     WriteManifestYaml,
 )
-from dbrownell_ToolsDirectory.ToolInfo import ArchitectureType, OperatingSystemType
+from dbrownell_ToolsDirectory.ToolInfo import ArchitectureType, OperatingSystemType, TOOL_CONFIG_FILENAME
 
 
 # ----------------------------------------------------------------------
@@ -64,6 +64,34 @@ class TestToolConfiguration:
         )
 
         assert config.env_files == {Path("Tool1/Tool1.env"): "FOO=BAR"}
+
+    # ----------------------------------------------------------------------
+    def test_DefaultConfigFile(self) -> None:
+        config = ToolConfiguration(
+            version=SemVer("1.0.0"),
+            operating_system=OperatingSystemType.Linux,
+            architecture=ArchitectureType.x64,
+            versioned_directory=Path("Tool1/1.0.0/Linux/x64"),
+            binary_directory=Path("Tool1/1.0.0/Linux/x64/bin"),
+        )
+
+        assert config.config_file is None
+
+    # ----------------------------------------------------------------------
+    def test_WithConfigFile(self) -> None:
+        config = ToolConfiguration(
+            version=SemVer("1.0.0"),
+            operating_system=OperatingSystemType.Linux,
+            architecture=ArchitectureType.x64,
+            versioned_directory=Path("Tool1/1.0.0/Linux/x64"),
+            binary_directory=Path("Tool1/1.0.0/Linux/x64/bin"),
+            config_file=(Path("Tool1/1.0.0/Linux/x64/config.yaml"), "binary_directory: custom/bin\n"),
+        )
+
+        assert config.config_file == (
+            Path("Tool1/1.0.0/Linux/x64/config.yaml"),
+            "binary_directory: custom/bin\n",
+        )
 
 
 # ----------------------------------------------------------------------
@@ -384,6 +412,56 @@ class TestGenerateManifest:
         assert config.env_files[Path("Tool1/1.0.0/Tool1-Linux.env")] == "BAZ=QUX\n"
 
     # ----------------------------------------------------------------------
+    def test_WithConfigFile(self, fs: FakeFilesystem) -> None:
+        tools_dir = Path("/tools")
+        fs.create_dir(tools_dir / "Tool1" / "lib" / "bin")
+        fs.create_file(
+            tools_dir / "Tool1" / TOOL_CONFIG_FILENAME,
+            contents="binary_directory: lib/bin\n",
+        )
+
+        manifest = _GenerateManifest(tools_dir)
+
+        assert len(manifest.tools) == 1
+        config = manifest.tools[0].configurations[0]
+        assert config.versioned_directory == Path("Tool1")
+        assert config.binary_directory == Path("Tool1/lib/bin")
+        assert config.config_file is not None
+        assert config.config_file[0] == Path(f"Tool1/{TOOL_CONFIG_FILENAME}")
+        assert config.config_file[1] == "binary_directory: lib/bin\n"
+
+    # ----------------------------------------------------------------------
+    def test_WithConfigFileInVersionedDirectory(self, fs: FakeFilesystem) -> None:
+        tools_dir = Path("/tools")
+        fs.create_dir(tools_dir / "Tool1" / "1.0.0" / "custom" / "path")
+        fs.create_file(
+            tools_dir / "Tool1" / "1.0.0" / TOOL_CONFIG_FILENAME,
+            contents="binary_directory: custom/path\n",
+        )
+
+        manifest = _GenerateManifest(tools_dir)
+
+        assert len(manifest.tools) == 1
+        config = manifest.tools[0].configurations[0]
+        assert config.version == SemVer("1.0.0")
+        assert config.versioned_directory == Path("Tool1/1.0.0")
+        assert config.binary_directory == Path("Tool1/1.0.0/custom/path")
+        assert config.config_file is not None
+        assert config.config_file[0] == Path(f"Tool1/1.0.0/{TOOL_CONFIG_FILENAME}")
+        assert config.config_file[1] == "binary_directory: custom/path\n"
+
+    # ----------------------------------------------------------------------
+    def test_NoConfigFile(self, fs: FakeFilesystem) -> None:
+        tools_dir = Path("/tools")
+        fs.create_dir(tools_dir / "Tool1")
+
+        manifest = _GenerateManifest(tools_dir)
+
+        assert len(manifest.tools) == 1
+        config = manifest.tools[0].configurations[0]
+        assert config.config_file is None
+
+    # ----------------------------------------------------------------------
     def test_IgnoresNonDirectories(self, fs: FakeFilesystem) -> None:
         tools_dir = Path("/tools")
         fs.create_dir(tools_dir / "Tool1")
@@ -679,6 +757,106 @@ class TestWriteManifestYaml:
 
         config = data["tools"][0]["configurations"][0]
         assert config["env_files"]["Tool1/Tool1.env"] == ""
+
+    # ----------------------------------------------------------------------
+    def test_ManifestWithConfigFile(self, fs: FakeFilesystem) -> None:
+        output_path = Path("/output/manifest.yaml")
+        manifest = ToolsManifest(
+            tools=[
+                ToolManifestEntry(
+                    name="Tool1",
+                    configurations=[
+                        ToolConfiguration(
+                            version=None,
+                            operating_system=None,
+                            architecture=None,
+                            versioned_directory=Path("Tool1"),
+                            binary_directory=Path("Tool1/lib/bin"),
+                            env_files={},
+                            config_file=(
+                                Path(f"Tool1/{TOOL_CONFIG_FILENAME}"),
+                                "binary_directory: lib/bin\n",
+                            ),
+                        ),
+                    ],
+                ),
+            ],
+        )
+
+        WriteManifestYaml(manifest, output_path)
+
+        with output_path.open() as f:
+            data = yaml.safe_load(f)
+
+        config = data["tools"][0]["configurations"][0]
+        assert config["config_file"] is not None
+        assert f"Tool1/{TOOL_CONFIG_FILENAME}" in config["config_file"]
+        assert config["config_file"][f"Tool1/{TOOL_CONFIG_FILENAME}"] == "binary_directory: lib/bin\n"
+
+    # ----------------------------------------------------------------------
+    def test_ManifestWithoutConfigFile(self, fs: FakeFilesystem) -> None:
+        output_path = Path("/output/manifest.yaml")
+        manifest = ToolsManifest(
+            tools=[
+                ToolManifestEntry(
+                    name="Tool1",
+                    configurations=[
+                        ToolConfiguration(
+                            version=None,
+                            operating_system=None,
+                            architecture=None,
+                            versioned_directory=Path("Tool1"),
+                            binary_directory=Path("Tool1"),
+                            env_files={},
+                            config_file=None,
+                        ),
+                    ],
+                ),
+            ],
+        )
+
+        WriteManifestYaml(manifest, output_path)
+
+        with output_path.open() as f:
+            data = yaml.safe_load(f)
+
+        config = data["tools"][0]["configurations"][0]
+        assert config["config_file"] is None
+
+    # ----------------------------------------------------------------------
+    def test_ConfigFileContentUsesLiteralBlockScalar(self, fs: FakeFilesystem) -> None:
+        output_path = Path("/output/manifest.yaml")
+        manifest = ToolsManifest(
+            tools=[
+                ToolManifestEntry(
+                    name="Tool1",
+                    configurations=[
+                        ToolConfiguration(
+                            version=None,
+                            operating_system=None,
+                            architecture=None,
+                            versioned_directory=Path("Tool1"),
+                            binary_directory=Path("Tool1/custom/bin"),
+                            env_files={},
+                            config_file=(
+                                Path(f"Tool1/{TOOL_CONFIG_FILENAME}"),
+                                "binary_directory: custom/bin\nextra_key: value\n",
+                            ),
+                        ),
+                    ],
+                ),
+            ],
+        )
+
+        WriteManifestYaml(manifest, output_path)
+
+        with output_path.open() as f:
+            content = f.read()
+
+        # Check that literal block scalar format (|) is used for multiline content
+        assert f"Tool1/{TOOL_CONFIG_FILENAME}: |" in content
+        assert "binary_directory: custom/bin" in content
+        assert "extra_key: value" in content
 
 
 # ----------------------------------------------------------------------

@@ -11,6 +11,7 @@ from dbrownell_ToolsDirectory.ToolInfo import (
     GenerateToolInfos,
     OperatingSystemType,
     ToolInfo,
+    TOOL_CONFIG_FILENAME,
 )
 
 if TYPE_CHECKING:
@@ -46,6 +47,9 @@ class ToolConfiguration:
 
     env_files: dict[Path, str] = field(default_factory=dict)
     """Environment files (relative to tools_directory) mapped to their contents."""
+
+    config_file: tuple[Path, str] | None = None
+    """Tool configuration file (relative path and contents), if present."""
 
 
 # ----------------------------------------------------------------------
@@ -138,6 +142,16 @@ def GenerateManifest(
                     if env_file.is_file()
                 }
 
+                # Check for tool configuration file
+                config_file_path = tool_info.versioned_directory / TOOL_CONFIG_FILENAME
+                config_file_data: tuple[Path, str] | None = None
+
+                if config_file_path.is_file():
+                    config_file_data = (
+                        config_file_path.relative_to(tools_directory),
+                        config_file_path.read_text(encoding="utf-8"),
+                    )
+
                 tool_configurations.append(
                     ToolConfiguration(
                         version=tool_info.version,
@@ -146,6 +160,7 @@ def GenerateManifest(
                         versioned_directory=tool_info.versioned_directory.relative_to(tools_directory),
                         binary_directory=tool_info.binary_directory.relative_to(tools_directory),
                         env_files=existing_env_files,
+                        config_file=config_file_data,
                     ),
                 )
 
@@ -259,6 +274,13 @@ def _ToolConfigurationToDict(config: ToolConfiguration) -> dict:
     else:
         assert False, config.architecture  # noqa: B011, PT015  # pragma: no cover
 
+    config_file_value: dict[str, str] | None = None
+
+    if config.config_file is not None:
+        config_file_value = {
+            str(config.config_file[0].as_posix()): _LiteralBlockScalar(config.config_file[1]),
+        }
+
     return {
         "version": str(config.version) if config.version is not None else None,
         "operating_system": os_value,
@@ -268,4 +290,5 @@ def _ToolConfigurationToDict(config: ToolConfiguration) -> dict:
         "env_files": {
             str(path.as_posix()): _LiteralBlockScalar(content) for path, content in config.env_files.items()
         },
+        "config_file": config_file_value,
     }
