@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from enum import auto, Enum
 from typing import Literal, TYPE_CHECKING
 
+import yaml
+
 from dbrownell_Common.InflectEx import inflect
 from semantic_version import Version as SemVer
 
@@ -14,6 +16,14 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from dbrownell_Common.Streams.DoneManager import DoneManager
+
+
+# ----------------------------------------------------------------------
+# |
+# |  Public Data
+# |
+# ----------------------------------------------------------------------
+TOOL_CONFIG_FILENAME = "dbrownell_ToolsDirectory-config.yaml"
 
 
 # ----------------------------------------------------------------------
@@ -239,6 +249,35 @@ class ToolInfo:
 
 
 # ----------------------------------------------------------------------
+@dataclass(frozen=True)
+class ToolConfig:
+    """Optional configuration for a tool loaded from a YAML file."""
+
+    binary_directory: str | None = None
+    """Relative path to binary directory from versioned_directory."""
+
+    # ----------------------------------------------------------------------
+    @classmethod
+    def Load(cls, versioned_dir: Path) -> ToolConfig | None:
+        """Load tool configuration from YAML file if it exists."""
+
+        config_path = versioned_dir / TOOL_CONFIG_FILENAME
+
+        if not config_path.is_file():
+            return None
+
+        with config_path.open("r", encoding="utf-8") as f:
+            data: dict[str, object] | None = yaml.safe_load(f)
+
+        if data is None:
+            return cls()
+
+        return cls(
+            binary_directory=data.get("binary_directory"),
+        )
+
+
+# ----------------------------------------------------------------------
 # |
 # |  Public Functions
 # |
@@ -335,8 +374,13 @@ def GenerateToolInfos(
                 architecture_filter,
                 allow_generic_architecture=allow_generic_architecture,
             ):
-                potential_bin_dir = architecture_dir / "bin"
-                bin_dir = potential_bin_dir if potential_bin_dir.is_dir() else architecture_dir
+                tool_config = ToolConfig.Load(architecture_dir)
+
+                if tool_config is not None and tool_config.binary_directory is not None:
+                    bin_dir = architecture_dir / tool_config.binary_directory
+                else:
+                    potential_bin_dir = architecture_dir / "bin"
+                    bin_dir = potential_bin_dir if potential_bin_dir.is_dir() else architecture_dir
 
                 yield ToolInfo(
                     tool_name,

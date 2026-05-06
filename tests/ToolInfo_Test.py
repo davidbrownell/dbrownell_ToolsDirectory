@@ -18,7 +18,9 @@ from dbrownell_ToolsDirectory.ToolInfo import (
     GenerateToolInfos,
     GetAllToolInfos,
     OperatingSystemType,
+    ToolConfig,
     ToolInfo,
+    TOOL_CONFIG_FILENAME,
 )
 
 
@@ -369,6 +371,85 @@ class TestToolInfoDataclass:
 
 
 # ----------------------------------------------------------------------
+class TestToolConfig:
+    """Tests for ToolConfig dataclass."""
+
+    # ----------------------------------------------------------------------
+    def test_DefaultValues(self) -> None:
+        config = ToolConfig()
+
+        assert config.binary_directory is None
+
+    # ----------------------------------------------------------------------
+    def test_WithBinaryDirectory(self) -> None:
+        config = ToolConfig(binary_directory="lib/bin")
+
+        assert config.binary_directory == "lib/bin"
+
+
+# ----------------------------------------------------------------------
+class TestToolConfigLoad:
+    """Tests for ToolConfig.Load classmethod."""
+
+    # ----------------------------------------------------------------------
+    def test_NoConfigFile(self, fs: FakeFilesystem) -> None:
+        fs.create_dir("/tools/Tool1")
+
+        result = ToolConfig.Load(Path("/tools/Tool1"))
+
+        assert result is None
+
+    # ----------------------------------------------------------------------
+    def test_EmptyConfigFile(self, fs: FakeFilesystem) -> None:
+        fs.create_dir("/tools/Tool1")
+        fs.create_file(f"/tools/Tool1/{TOOL_CONFIG_FILENAME}", contents="")
+
+        result = ToolConfig.Load(Path("/tools/Tool1"))
+
+        assert result is not None
+        assert result.binary_directory is None
+
+    # ----------------------------------------------------------------------
+    def test_ConfigWithBinaryDirectory(self, fs: FakeFilesystem) -> None:
+        fs.create_dir("/tools/Tool1")
+        fs.create_file(
+            f"/tools/Tool1/{TOOL_CONFIG_FILENAME}",
+            contents="binary_directory: lib/scripts\n",
+        )
+
+        result = ToolConfig.Load(Path("/tools/Tool1"))
+
+        assert result is not None
+        assert result.binary_directory == "lib/scripts"
+
+    # ----------------------------------------------------------------------
+    def test_ConfigWithoutBinaryDirectory(self, fs: FakeFilesystem) -> None:
+        fs.create_dir("/tools/Tool1")
+        fs.create_file(
+            f"/tools/Tool1/{TOOL_CONFIG_FILENAME}",
+            contents="some_other_key: value\n",
+        )
+
+        result = ToolConfig.Load(Path("/tools/Tool1"))
+
+        assert result is not None
+        assert result.binary_directory is None
+
+    # ----------------------------------------------------------------------
+    def test_ConfigIgnoresUnknownKeys(self, fs: FakeFilesystem) -> None:
+        fs.create_dir("/tools/Tool1")
+        fs.create_file(
+            f"/tools/Tool1/{TOOL_CONFIG_FILENAME}",
+            contents="binary_directory: custom/bin\nunknown_key: ignored\n",
+        )
+
+        result = ToolConfig.Load(Path("/tools/Tool1"))
+
+        assert result is not None
+        assert result.binary_directory == "custom/bin"
+
+
+# ----------------------------------------------------------------------
 class TestGenerateToolInfos:
     """Tests for GenerateToolInfos function."""
 
@@ -433,6 +514,115 @@ class TestGenerateToolInfos:
             assert tool_infos[0].root_directory == Path("/tools/Tool1")
             assert tool_infos[0].versioned_directory == Path("/tools/Tool1")
             assert tool_infos[0].binary_directory == Path("/tools/Tool1")
+
+        # ----------------------------------------------------------------------
+        def test_CustomBinaryDirectoryFromConfig(self, fs: FakeFilesystem) -> None:
+            fs.create_dir("/tools/Tool1/lib/scripts")
+            fs.create_file(
+                f"/tools/Tool1/{TOOL_CONFIG_FILENAME}",
+                contents="binary_directory: lib/scripts\n",
+            )
+
+            tool_infos = list(
+                GenerateToolInfos(
+                    Path("/tools/Tool1"),
+                    version_filter=None,
+                    operating_system_filter=None,
+                    architecture_filter=None,
+                )
+            )
+
+            assert len(tool_infos) == 1
+            assert tool_infos[0].root_directory == Path("/tools/Tool1")
+            assert tool_infos[0].versioned_directory == Path("/tools/Tool1")
+            assert tool_infos[0].binary_directory == Path("/tools/Tool1/lib/scripts")
+
+        # ----------------------------------------------------------------------
+        def test_ConfigWithoutBinaryDirectoryUsesDefault(self, fs: FakeFilesystem) -> None:
+            fs.create_dir("/tools/Tool1/bin")
+            fs.create_file(
+                f"/tools/Tool1/{TOOL_CONFIG_FILENAME}",
+                contents="some_other_key: value\n",
+            )
+
+            tool_infos = list(
+                GenerateToolInfos(
+                    Path("/tools/Tool1"),
+                    version_filter=None,
+                    operating_system_filter=None,
+                    architecture_filter=None,
+                )
+            )
+
+            assert len(tool_infos) == 1
+            assert tool_infos[0].binary_directory == Path("/tools/Tool1/bin")
+
+        # ----------------------------------------------------------------------
+        def test_ConfigBinaryDirectoryOverridesBinDir(self, fs: FakeFilesystem) -> None:
+            fs.create_dir("/tools/Tool1/bin")
+            fs.create_dir("/tools/Tool1/custom/path")
+            fs.create_file(
+                f"/tools/Tool1/{TOOL_CONFIG_FILENAME}",
+                contents="binary_directory: custom/path\n",
+            )
+
+            tool_infos = list(
+                GenerateToolInfos(
+                    Path("/tools/Tool1"),
+                    version_filter=None,
+                    operating_system_filter=None,
+                    architecture_filter=None,
+                )
+            )
+
+            assert len(tool_infos) == 1
+            # Config takes precedence over bin/ directory
+            assert tool_infos[0].binary_directory == Path("/tools/Tool1/custom/path")
+
+        # ----------------------------------------------------------------------
+        def test_ConfigInVersionedDirectory(self, fs: FakeFilesystem) -> None:
+            fs.create_dir("/tools/Tool1/1.0.0/lib/bin")
+            fs.create_file(
+                f"/tools/Tool1/1.0.0/{TOOL_CONFIG_FILENAME}",
+                contents="binary_directory: lib/bin\n",
+            )
+
+            tool_infos = list(
+                GenerateToolInfos(
+                    Path("/tools/Tool1"),
+                    version_filter="latest",
+                    operating_system_filter=None,
+                    architecture_filter=None,
+                )
+            )
+
+            assert len(tool_infos) == 1
+            assert tool_infos[0].version == SemVer("1.0.0")
+            assert tool_infos[0].binary_directory == Path("/tools/Tool1/1.0.0/lib/bin")
+
+        # ----------------------------------------------------------------------
+        def test_ConfigInFullHierarchy(self, fs: FakeFilesystem) -> None:
+            fs.create_dir("/tools/Tool1/1.0.0/Linux/x64/opt/bin")
+            fs.create_file(
+                f"/tools/Tool1/1.0.0/Linux/x64/{TOOL_CONFIG_FILENAME}",
+                contents="binary_directory: opt/bin\n",
+            )
+
+            tool_infos = list(
+                GenerateToolInfos(
+                    Path("/tools/Tool1"),
+                    version_filter="latest",
+                    operating_system_filter=OperatingSystemType.Linux,
+                    architecture_filter=ArchitectureType.x64,
+                )
+            )
+
+            assert len(tool_infos) == 1
+            assert tool_infos[0].version == SemVer("1.0.0")
+            assert tool_infos[0].operating_system == OperatingSystemType.Linux
+            assert tool_infos[0].architecture == ArchitectureType.x64
+            assert tool_infos[0].versioned_directory == Path("/tools/Tool1/1.0.0/Linux/x64")
+            assert tool_infos[0].binary_directory == Path("/tools/Tool1/1.0.0/Linux/x64/opt/bin")
 
     # ----------------------------------------------------------------------
     class TestVersionDirectoryHandling:
